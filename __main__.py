@@ -6,63 +6,62 @@ import json
 def main():
     parser = argparse.ArgumentParser(description="Pixel Workbench")
     parser.add_argument('--script', type=str, help='Path to a DSL script to execute headlessly')
-    parser.add_argument('subcommand_args', nargs='*', help='Subcommands: diff, ai')
+    parser.add_argument('subcommand_args', nargs='*', help='Subcommands: diff, generate, analyze, review')
 
     args, unknown = parser.parse_known_args()
 
-    if args.subcommand_args and args.subcommand_args[0] == "ai":
-        from .app import Workbench
-        wb = Workbench()
+    if args.subcommand_args:
+        subcommand = args.subcommand_args[0]
 
-        ai_parser = argparse.ArgumentParser(prog="pixel-workbench ai")
-        ai_subparsers = ai_parser.add_subparsers(dest="command")
+        if subcommand in ("generate", "analyze", "review"):
+            from .app import Workbench
+            wb = Workbench()
 
-        gen_parser = ai_subparsers.add_parser("generate")
-        gen_parser.add_argument("--prompt", type=str, required=True)
-        gen_parser.add_argument("--size", type=str, default="16x16")
-        gen_parser.add_argument("--style-reference", type=str)
-        gen_parser.add_argument("--palette-reference", type=str)
-        gen_parser.add_argument("--output", type=str)
+            cmd_parser = argparse.ArgumentParser(prog=f"pixel-workbench {subcommand}")
 
-        style_parser = ai_subparsers.add_parser("analyze-style")
-        style_parser.add_argument("path", type=str)
+            if subcommand == "generate":
+                cmd_parser.add_argument("--prompt", type=str, required=True)
+                cmd_parser.add_argument("--size", type=str, default="16x16")
+                cmd_parser.add_argument("--style-reference", type=str)
+                cmd_parser.add_argument("--palette-reference", type=str)
+                cmd_parser.add_argument("--output", type=str)
 
-        review_parser = ai_subparsers.add_parser("review")
-        review_parser.add_argument("path", type=str)
+                cmd_args = cmd_parser.parse_args(args.subcommand_args[1:] + unknown)
+                size_parts = cmd_args.size.lower().split("x")
+                size = (int(size_parts[0]), int(size_parts[1]))
 
-        ai_args = ai_parser.parse_args(args.subcommand_args[1:] + unknown)
+                draft = wb.generate(
+                    prompt=cmd_args.prompt,
+                    size=size,
+                    style_reference=cmd_args.style_reference,
+                    palette_reference=cmd_args.palette_reference
+                )
 
-        if ai_args.command == "generate":
-            size_parts = ai_args.size.lower().split("x")
-            size = (int(size_parts[0]), int(size_parts[1]))
+                report = wb.review(draft)
 
-            draft = wb.ai.generate_sprite(
-                prompt=ai_args.prompt,
-                size=size,
-                style_reference=ai_args.style_reference,
-                palette_reference=ai_args.palette_reference
-            )
+                if cmd_args.output:
+                    draft.document.save(cmd_args.output)
 
-            report = wb.ai.review_sprite(draft)
+                print(json.dumps(draft.to_dict(), indent=2))
 
-            if ai_args.output:
-                draft.document.save(ai_args.output)
+            elif subcommand == "analyze":
+                cmd_parser.add_argument("path", type=str)
+                cmd_args = cmd_parser.parse_args(args.subcommand_args[1:] + unknown)
 
-            print(json.dumps(draft.to_dict(), indent=2))
+                result = wb.analyze(cmd_args.path)
+                print(json.dumps(result, indent=2))
 
-        elif ai_args.command == "analyze-style":
-            result = wb.ai.analyze_style(ai_args.path)
-            print(json.dumps(result, indent=2))
+            elif subcommand == "review":
+                cmd_parser.add_argument("path", type=str)
+                cmd_args = cmd_parser.parse_args(args.subcommand_args[1:] + unknown)
 
-        elif ai_args.command == "review":
-            # For CLI review of a saved image, we open it first
-            wb.open(ai_args.path)
-            from .ai.draft import SpriteDraft
-            draft = SpriteDraft(wb.document)
-            result = wb.ai.review_sprite(draft)
-            print(json.dumps(result, indent=2))
+                wb.open(cmd_args.path)
+                from .analysis.draft import SpriteDraft
+                draft = SpriteDraft(wb.document)
+                result = wb.review(draft)
+                print(json.dumps(result, indent=2))
 
-        sys.exit(0)
+            sys.exit(0)
 
     if args.subcommand_args and args.subcommand_args[0] == "diff":
         from .tools.compare import compare_files

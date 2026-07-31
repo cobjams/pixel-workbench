@@ -19,7 +19,7 @@ class AIDraftPreviewDialog(tk.Toplevel):
         tk.Label(self, text=draft.prompt, wraplength=380, justify="left").pack(anchor="w", padx=10)
 
         # Run review to get score and warnings
-        report = workbench.ai.review_sprite(draft)
+        report = workbench.review(draft)
         score_text = f"Style Match: {report.get('style_match_score', 0)} / 1.0"
         tk.Label(self, text=score_text, font=("Arial", 10, "bold")).pack(anchor="w", padx=10, pady=(10, 0))
 
@@ -63,11 +63,11 @@ def show_generate_dialog(parent, workbench):
     prompt = simpledialog.askstring("Generate AI Sprite", "Enter prompt:", parent=parent)
     if prompt:
         try:
-            draft = workbench.ai.generate_sprite(prompt=prompt, size=(16, 16))
+            draft = workbench.generate(prompt=prompt, size=(16, 16))
             dialog = AIDraftPreviewDialog(parent, workbench, draft)
             parent.wait_window(dialog)
             if dialog.accepted:
-                workbench.open_document(draft.document)
+                workbench.accept(draft)
                 return True
         except Exception as e:
             messagebox.showerror("Error", f"Failed to generate sprite: {e}")
