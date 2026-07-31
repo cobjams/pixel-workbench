@@ -17,9 +17,17 @@ class Workbench:
     def __init__(self):
         self.document = Document()
 
+        # Lazy load AIManager to avoid circular dependencies if any
+        from .ai.generator import AIManager
+        self.ai = AIManager()
+
     def open(self, filepath):
         """Loads an image into the document."""
         self.document.load(filepath)
+
+    def open_document(self, document: Document):
+        """Replaces the active document with a given one."""
+        self.document = document
 
     def save(self, filepath=None):
         """Saves the current document to a file."""
