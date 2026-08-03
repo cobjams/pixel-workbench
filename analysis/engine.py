@@ -6,6 +6,9 @@ from .style_analyzer import analyze_style
 from .palette_matcher import match_palette, quantize_to_palette
 from .sprite_reviewer import review_sprite
 from ..core.document import Document
+from .sprite_analysis import SpriteAnalysis
+from PIL import Image
+import os
 
 class ReasoningEngine:
     """
@@ -41,21 +44,23 @@ class ReasoningEngine:
             **kwargs
         )
 
-    def analyze(self, target: Union[str, Document, SpriteDraft]) -> Dict[str, Any]:
+    def analyze(self, target: Union[str, Document, SpriteDraft]) -> Union[Dict[str, Any], SpriteAnalysis]:
         """
         Analyzes a target (file path, Document, or Draft) and returns structured semantic metadata.
+        For a single Document or SpriteDraft (or a path to a single image), returns a SpriteAnalysis object.
+        For a path to a directory, returns a dictionary via analyze_style().
         """
         if isinstance(target, str):
-            return analyze_style(target)
+            if os.path.isdir(target):
+                return analyze_style(target)
+            else:
+                # Target is a file path to a single image
+                img = Image.open(target)
+                return SpriteAnalysis(img)
         elif isinstance(target, SpriteDraft):
-            if target.document.filepath:
-                return analyze_style(target.document.filepath)
-            # In-memory document fallback
-            return {"error": "Analysis for in-memory documents without filepath is pending implementation."}
+            return SpriteAnalysis(target.document.image)
         elif isinstance(target, Document):
-             if target.filepath:
-                 return analyze_style(target.filepath)
-             return {"error": "Analysis for in-memory documents without filepath is pending implementation."}
+             return SpriteAnalysis(target.image)
 
         raise ValueError("Invalid target for analysis.")
 

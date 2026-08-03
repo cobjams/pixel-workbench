@@ -46,13 +46,39 @@ class TestCapabilities(unittest.TestCase):
         img.save(dummy_path)
 
         try:
+            # When analyzing a single image path, it returns a SpriteAnalysis
             result = self.wb.analyze(dummy_path)
-            self.assertEqual(result["sprite_count"], 1)
-            self.assertEqual(result["common_sizes"][0], [16, 16])
-            self.assertEqual(result["average_palette_size"], 1) # Only red color
+            self.assertEqual(result.transparency_percentage, 0.0)
+            self.assertEqual(len(result.palette), 1)
+            self.assertEqual(result.palette[0], (255, 0, 0, 255))
         finally:
             if os.path.exists(dummy_path):
                 os.remove(dummy_path)
+
+    def test_sprite_analysis_properties(self):
+        # Create a test shape
+        img = Image.new("RGBA", (4, 4), (0, 0, 0, 0))
+        pixels = img.load()
+
+        # Draw a 2x2 red square in the middle
+        pixels[1, 1] = (255, 0, 0, 255)
+        pixels[2, 1] = (255, 0, 0, 255)
+        pixels[1, 2] = (255, 0, 0, 255)
+        pixels[2, 2] = (255, 0, 0, 255)
+
+        from pixel_workbench.core.document import Document
+        doc = Document()
+        doc.image = img
+
+        analysis = self.wb.analyze(doc)
+
+        self.assertEqual(analysis.transparency_percentage, 75.0)
+        self.assertEqual(analysis.palette, [(255, 0, 0, 255)])
+        self.assertEqual(len(analysis.connected_components), 1)
+        self.assertEqual(analysis.connected_components[0], {(1, 1), (1, 2), (2, 1), (2, 2)})
+        self.assertEqual(analysis.outline, {(1, 1), (1, 2), (2, 1), (2, 2)})
+        self.assertEqual(analysis.symmetry["horizontal"], 1.0)
+        self.assertEqual(analysis.symmetry["vertical"], 1.0)
 
     def test_palette_matcher(self):
         dummy_path = "dummy_palette_ref.png"
