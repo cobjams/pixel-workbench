@@ -17,9 +17,17 @@ class Workbench:
     def __init__(self):
         self.document = Document()
 
+        # Lazy load ReasoningEngine to avoid circular dependencies if any
+        from .analysis.engine import ReasoningEngine
+        self.engine = ReasoningEngine()
+
     def open(self, filepath):
         """Loads an image into the document."""
         self.document.load(filepath)
+
+    def open_document(self, document: Document):
+        """Replaces the active document with a given one."""
+        self.document = document
 
     def save(self, filepath=None):
         """Saves the current document to a file."""
@@ -86,3 +94,29 @@ class Workbench:
         """Runs validation checks and returns the result."""
         from .core.validation import validate_document
         return validate_document(self.document)
+
+    # Core Reasoning Engine capabilities exposed via Workbench
+
+    def analyze(self, target=None):
+        """Analyzes a sprite conceptually. Defaults to the active document."""
+        return self.engine.analyze(target or self.document)
+
+    def review(self, target=None, style_reference=None, expected_size=None):
+        """Reviews a sprite for structural and artistic flaws. Defaults to active document."""
+        return self.engine.review(target or self.document, style_reference, expected_size)
+
+    def repair(self, target=None):
+        """Deterministically repairs common pixel-art flaws. Defaults to active document."""
+        return self.engine.repair(target or self.document)
+
+    def compare(self, reference, target=None):
+        """Compares the current sprite conceptually against a reference."""
+        return self.engine.compare(target or self.document, reference)
+
+    def generate(self, prompt, **kwargs):
+        """Generates/constructs a new sprite draft."""
+        return self.engine.generate(prompt=prompt, **kwargs)
+
+    def accept(self, draft):
+        """Accepts a draft and replaces the active document."""
+        self.open_document(draft.document)
