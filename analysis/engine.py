@@ -1,4 +1,4 @@
-from typing import Tuple, Dict, Any, Optional, Union
+from typing import Tuple, Dict, Any, Optional, Union, Set
 from .draft import SpriteDraft
 from .adapters.base import AIProvider
 from .adapters.stub import StubProvider
@@ -82,3 +82,12 @@ class ReasoningEngine:
         """Compares a sprite against a reference to produce diff semantics."""
         # Stub for comparison capability
         return {"similarity_score": 0.0, "differences": []}
+
+    def select_region(self, target: Union[str, Document, SpriteDraft], region_name: str) -> set:
+        """
+        Analyzes the target and returns the coordinates of the requested semantic region.
+        """
+        analysis = self.analyze(target)
+        if hasattr(analysis, "get_region"):
+            return analysis.get_region(region_name)
+        return set()

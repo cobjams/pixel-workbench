@@ -120,3 +120,10 @@ class Workbench:
     def accept(self, draft):
         """Accepts a draft and replaces the active document."""
         self.open_document(draft.document)
+
+    def select_region(self, region_name: str, target=None) -> set:
+        """
+        Returns the coordinates of the requested semantic region for the target.
+        Defaults to the active document.
+        """
+        return self.engine.select_region(target or self.document, region_name)
