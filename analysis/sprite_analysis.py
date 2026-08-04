@@ -168,3 +168,13 @@ class SpriteAnalysis:
             "horizontal": round(h_score, 2),
             "vertical": round(v_score, 2)
         }
+
+    @property
+    def semantic_regions(self) -> Dict[str, Set[Tuple[int, int]]]:
+        if not hasattr(self, '_semantic_regions') or self._semantic_regions is None:
+            from .decomposition import extract_semantic_regions
+            self._semantic_regions = extract_semantic_regions(self)
+        return self._semantic_regions
+
+    def get_region(self, name: str) -> Set[Tuple[int, int]]:
+        return self.semantic_regions.get(name, set())
