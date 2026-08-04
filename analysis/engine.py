@@ -74,8 +74,9 @@ class ReasoningEngine:
         Automatically fixes common issues (e.g. noise, palette inconsistencies).
         Returns a report of what was repaired.
         """
-        # Stub for the repair capability
-        return {"repaired": True, "actions": ["Stub repair logic executed."]}
+        from .repair.engine import RepairEngine
+        engine = RepairEngine()
+        return engine.run(target)
 
     def compare(self, target: Union[SpriteDraft, Document], reference: Union[str, Document]) -> Dict[str, Any]:
         """Compares a sprite against a reference to produce diff semantics."""
