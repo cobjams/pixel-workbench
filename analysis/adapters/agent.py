@@ -5,6 +5,7 @@ from PIL import Image
 from ...core.document import Document
 from ..draft import SpriteDraft
 from .base import AIProvider
+from ..workspace import SpriteWorkspace
 
 class CodingAgentProvider(AIProvider):
     """
@@ -20,10 +21,12 @@ class CodingAgentProvider(AIProvider):
         size: Tuple[int, int] = (16, 16),
         style_context: Optional[Dict[str, Any]] = None,
         palette_context: Optional[Dict[str, Any]] = None,
+        constraints: Optional[Dict[str, Any]] = None,
+        project_metadata: Optional[Dict[str, Any]] = None,
         **kwargs
-    ) -> SpriteDraft:
+    ) -> SpriteWorkspace:
         """
-        Creates a new, empty draft sprite for the agent to begin iterative construction.
+        Creates a new, empty workspace for the agent to begin iterative construction.
         """
         width, height = size
 
@@ -34,9 +37,22 @@ class CodingAgentProvider(AIProvider):
         document.image = img
         document.original_mode = "RGBA"
 
-        return SpriteDraft(
+        # Populate constraints and metadata, applying defaults if needed
+        workspace_constraints = constraints or {
+            "required_size": size,
+            "must_have_transparent_background": True
+        }
+        workspace_metadata = project_metadata or {
+            "theme": "ball bearing factory",
+            "terminology": "janitor, mop, overalls"
+        }
+
+        # Initialize the workspace
+        workspace = SpriteWorkspace(
             document=document,
-            prompt=prompt,
-            generator="CodingAgentProvider",
-            model="agent-iterative",
+            constraints=workspace_constraints,
+            project_metadata=workspace_metadata
         )
+
+        # SpriteDraft context could be added if needed, but per prompt we return SpriteWorkspace directly
+        return workspace

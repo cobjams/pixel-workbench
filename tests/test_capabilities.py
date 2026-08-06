@@ -20,12 +20,13 @@ class TestCapabilities(unittest.TestCase):
         self.assertEqual(draft.document.height, 16)
 
     def test_coding_agent_provider(self):
+        from pixel_workbench.analysis.workspace import SpriteWorkspace
         self.wb.engine.provider = CodingAgentProvider()
-        draft = self.wb.generate(prompt="build base layer", size=(32, 32))
-        self.assertIsInstance(draft, SpriteDraft)
-        self.assertEqual(draft.document.width, 32)
+        workspace = self.wb.generate(prompt="build base layer", size=(32, 32))
+        self.assertIsInstance(workspace, SpriteWorkspace)
+        self.assertEqual(workspace.document.width, 32)
         # Verify it starts blank
-        self.assertEqual(draft.document.image.getpixel((0,0)), (0,0,0,0))
+        self.assertEqual(workspace.document.image.getpixel((0,0)), (0,0,0,0))
 
     def test_review_sprite(self):
         draft = self.wb.generate(prompt="test", size=(32, 32))
