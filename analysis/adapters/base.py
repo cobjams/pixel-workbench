@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Tuple, Dict, Any, Optional
+from typing import Tuple, Dict, Any, Optional, Union
 from ..draft import SpriteDraft
 
 class AIProvider(ABC):
@@ -17,9 +17,9 @@ class AIProvider(ABC):
         style_context: Optional[Dict[str, Any]] = None,
         palette_context: Optional[Dict[str, Any]] = None,
         **kwargs
-    ) -> SpriteDraft:
+    ) -> Union[SpriteDraft, Any]:
         """
         Generates a sprite based on a prompt and constraints.
-        Returns a SpriteDraft object.
+        Returns a SpriteDraft object or SpriteWorkspace.
         """
         pass
