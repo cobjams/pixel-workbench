@@ -55,7 +55,7 @@ class TestSpriteWorkspace(unittest.TestCase):
         """Test that the CodingAgentProvider returns a well-formed SpriteWorkspace."""
         provider = CodingAgentProvider()
 
-        workspace = provider.generate_sprite(prompt="test prompt", size=(16, 16))
+        workspace = provider.construct_sprite(prompt="test prompt", size=(16, 16))
 
         self.assertIsInstance(workspace, SpriteWorkspace)
         self.assertEqual(workspace.document.width, 16)

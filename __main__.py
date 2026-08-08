@@ -6,20 +6,20 @@ import json
 def main():
     parser = argparse.ArgumentParser(description="Pixel Workbench")
     parser.add_argument('--script', type=str, help='Path to a DSL script to execute headlessly')
-    parser.add_argument('subcommand_args', nargs='*', help='Subcommands: diff, generate, analyze, review')
+    parser.add_argument('subcommand_args', nargs='*', help='Subcommands: diff, construct, analyze, review')
 
     args, unknown = parser.parse_known_args()
 
     if args.subcommand_args:
         subcommand = args.subcommand_args[0]
 
-        if subcommand in ("generate", "analyze", "review"):
+        if subcommand in ("construct", "analyze", "review"):
             from .app import Workbench
             wb = Workbench()
 
             cmd_parser = argparse.ArgumentParser(prog=f"pixel-workbench {subcommand}")
 
-            if subcommand == "generate":
+            if subcommand == "construct":
                 cmd_parser.add_argument("--prompt", type=str, required=True)
                 cmd_parser.add_argument("--size", type=str, default="16x16")
                 cmd_parser.add_argument("--style-reference", type=str)
@@ -30,7 +30,7 @@ def main():
                 size_parts = cmd_args.size.lower().split("x")
                 size = (int(size_parts[0]), int(size_parts[1]))
 
-                draft = wb.generate(
+                draft = wb.construct(
                     prompt=cmd_args.prompt,
                     size=size,
                     style_reference=cmd_args.style_reference,

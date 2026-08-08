@@ -28,9 +28,9 @@ class MainWindow(tk.Tk):
         edit_menu.add_command(label="Redo", command=self.redo)
         menubar.add_cascade(label="Edit", menu=edit_menu)
 
-        ai_menu = tk.Menu(menubar, tearoff=0)
-        ai_menu.add_command(label="Generate Sprite...", command=self.generate_ai_sprite)
-        menubar.add_cascade(label="AI", menu=ai_menu)
+        construct_menu = tk.Menu(menubar, tearoff=0)
+        construct_menu.add_command(label="Construct Sprite...", command=self.construct_sprite_dialog)
+        menubar.add_cascade(label="Construction", menu=construct_menu)
 
         # Main Layout
         self.left_panel = tk.Frame(self, width=200, bg="#ddd")
@@ -87,9 +87,9 @@ class MainWindow(tk.Tk):
         if self.workbench.redo():
             self.refresh_ui()
 
-    def generate_ai_sprite(self):
-        from .ai_dialog import show_generate_dialog
-        if show_generate_dialog(self, self.workbench):
+    def construct_sprite_dialog(self):
+        from .construct_dialog import show_construct_dialog
+        if show_construct_dialog(self, self.workbench):
             self.refresh_ui()
 
     def on_image_changed(self, event):

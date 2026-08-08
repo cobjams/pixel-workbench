@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Tuple, Dict, Any, Optional, Union
 from ..draft import SpriteDraft
 
-class AIProvider(ABC):
+class ConstructionProvider(ABC):
     """
     Abstract base class for AI Providers.
     Different backends (e.g. OpenAI, Local Models, Stub/Procedural)
@@ -10,7 +10,7 @@ class AIProvider(ABC):
     """
 
     @abstractmethod
-    def generate_sprite(
+    def construct_sprite(
         self,
         prompt: str,
         size: Tuple[int, int],

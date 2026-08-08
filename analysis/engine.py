@@ -1,6 +1,6 @@
 from typing import Tuple, Dict, Any, Optional, Union, Set
 from .draft import SpriteDraft
-from .adapters.base import AIProvider
+from .adapters.base import ConstructionProvider
 from .adapters.stub import StubProvider
 from .style_analyzer import analyze_style
 from .palette_matcher import match_palette, quantize_to_palette
@@ -15,10 +15,10 @@ class ReasoningEngine:
     Core semantic reasoning and execution layer for the Pixel Workbench.
     Exposes capabilities like analyze, review, repair, and generate.
     """
-    def __init__(self, provider: Optional[AIProvider] = None):
+    def __init__(self, provider: Optional[ConstructionProvider] = None):
         self.provider = provider or StubProvider()
 
-    def generate(
+    def construct(
         self,
         prompt: str,
         size: Tuple[int, int] = (16, 16),
@@ -36,7 +36,7 @@ class ReasoningEngine:
         if palette_reference:
             pass
 
-        return self.provider.generate_sprite(
+        return self.provider.construct_sprite(
             prompt=prompt,
             size=size,
             style_context=style_context,
