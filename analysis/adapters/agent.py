@@ -4,10 +4,10 @@ from PIL import Image
 
 from ...core.document import Document
 from ..draft import SpriteDraft
-from .base import AIProvider
+from .base import ConstructionProvider
 from ..workspace import SpriteWorkspace
 
-class CodingAgentProvider(AIProvider):
+class CodingAgentProvider(ConstructionProvider):
     """
     A provider designed to allow a coding agent to deterministically construct and modify
     sprites in an iterative loop (create draft -> analyze -> review -> repair).
@@ -15,7 +15,7 @@ class CodingAgentProvider(AIProvider):
     This does not call an external image-generation API. It gives the agent a blank slate
     or copies a reference to modify.
     """
-    def generate_sprite(
+    def construct_sprite(
         self,
         prompt: str,
         size: Tuple[int, int] = (16, 16),

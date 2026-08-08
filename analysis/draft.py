@@ -11,18 +11,18 @@ class SpriteDraft:
         self,
         document: Document,
         prompt: str = "",
-        generator: str = "",
+        constructor: str = "",
         model: str = "",
-        generation_time: Optional[float] = None,
+        construction_time: Optional[float] = None,
         review: Optional[Dict[str, Any]] = None,
         validation: Optional[Dict[str, Any]] = None,
         metadata: Optional[Dict[str, Any]] = None
     ):
         self.document = document
         self.prompt = prompt
-        self.generator = generator
+        self.constructor = constructor
         self.model = model
-        self.generation_time = generation_time or time.time()
+        self.construction_time = construction_time or time.time()
         self.review = review or {}
         self.validation = validation or {}
         self.metadata = metadata or {}
@@ -32,9 +32,9 @@ class SpriteDraft:
         """Returns a machine-readable summary of the draft."""
         return {
             "prompt": self.prompt,
-            "generator": self.generator,
+            "constructor": self.constructor,
             "model": self.model,
-            "generation_time": self.generation_time,
+            "construction_time": self.construction_time,
             "review": self.review,
             "validation": self.validation,
             "metadata": self.metadata,

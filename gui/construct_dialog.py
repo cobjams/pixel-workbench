@@ -2,10 +2,10 @@ import tkinter as tk
 from tkinter import simpledialog, messagebox
 from PIL import ImageTk
 
-class AIDraftPreviewDialog(tk.Toplevel):
+class ConstructionDraftPreviewDialog(tk.Toplevel):
     def __init__(self, parent, workbench, draft):
         super().__init__(parent)
-        self.title("AI Draft Preview")
+        self.title("Construction Draft Preview")
         self.geometry("400x500")
         self.workbench = workbench
         self.draft = draft
@@ -59,16 +59,16 @@ class AIDraftPreviewDialog(tk.Toplevel):
         self.accepted = False
         self.destroy()
 
-def show_generate_dialog(parent, workbench):
-    prompt = simpledialog.askstring("Generate AI Sprite", "Enter prompt:", parent=parent)
+def show_construct_dialog(parent, workbench):
+    prompt = simpledialog.askstring("Construct Sprite", "Enter prompt:", parent=parent)
     if prompt:
         try:
-            draft = workbench.generate(prompt=prompt, size=(16, 16))
-            dialog = AIDraftPreviewDialog(parent, workbench, draft)
+            draft = workbench.construct(prompt=prompt, size=(16, 16))
+            dialog = ConstructionDraftPreviewDialog(parent, workbench, draft)
             parent.wait_window(dialog)
             if dialog.accepted:
                 workbench.accept(draft)
                 return True
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to generate sprite: {e}")
+            messagebox.showerror("Error", f"Failed to construct sprite: {e}")
     return False

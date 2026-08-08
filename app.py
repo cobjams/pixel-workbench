@@ -113,9 +113,9 @@ class Workbench:
         """Compares the current sprite conceptually against a reference."""
         return self.engine.compare(target or self.document, reference)
 
-    def generate(self, prompt, **kwargs):
+    def construct(self, prompt, **kwargs):
         """Generates/constructs a new sprite draft."""
-        return self.engine.generate(prompt=prompt, **kwargs)
+        return self.engine.construct(prompt=prompt, **kwargs)
 
     def accept(self, draft):
         """Accepts a draft and replaces the active document."""

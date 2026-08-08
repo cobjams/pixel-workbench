@@ -12,8 +12,8 @@ class TestCapabilities(unittest.TestCase):
     def setUp(self):
         self.wb = Workbench()
 
-    def test_generate_draft(self):
-        draft = self.wb.generate(prompt="test prompt", size=(16, 16))
+    def test_construct_draft(self):
+        draft = self.wb.construct(prompt="test prompt", size=(16, 16))
         self.assertIsInstance(draft, SpriteDraft)
         self.assertEqual(draft.prompt, "test prompt")
         self.assertEqual(draft.document.width, 16)
@@ -22,14 +22,14 @@ class TestCapabilities(unittest.TestCase):
     def test_coding_agent_provider(self):
         from pixel_workbench.analysis.workspace import SpriteWorkspace
         self.wb.engine.provider = CodingAgentProvider()
-        workspace = self.wb.generate(prompt="build base layer", size=(32, 32))
+        workspace = self.wb.construct(prompt="build base layer", size=(32, 32))
         self.assertIsInstance(workspace, SpriteWorkspace)
         self.assertEqual(workspace.document.width, 32)
         # Verify it starts blank
         self.assertEqual(workspace.document.image.getpixel((0,0)), (0,0,0,0))
 
     def test_review_sprite(self):
-        draft = self.wb.generate(prompt="test", size=(32, 32))
+        draft = self.wb.construct(prompt="test", size=(32, 32))
         report = self.wb.review(draft, expected_size=(32, 32))
 
         self.assertIn("validation_passed", report)
@@ -119,7 +119,7 @@ class TestCapabilities(unittest.TestCase):
         output_file = "test_cli_output.png"
         try:
             result = subprocess.run(
-                ["python", "-m", "pixel_workbench", "generate", "--prompt", "test", "--output", output_file],
+                ["python", "-m", "pixel_workbench", "construct", "--prompt", "test", "--output", output_file],
                 capture_output=True, text=True, check=True
             )
             # Try to parse the json response

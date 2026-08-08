@@ -4,9 +4,9 @@ from PIL import Image
 
 from ...core.document import Document
 from ..draft import SpriteDraft
-from .base import AIProvider
+from .base import ConstructionProvider
 
-class StubProvider(AIProvider):
+class StubProvider(ConstructionProvider):
     """
     A simple stub generator that produces noise or basic shapes.
     Useful for testing the plugin architecture without a real AI backend.
@@ -14,7 +14,7 @@ class StubProvider(AIProvider):
     def __init__(self, seed: Optional[int] = None):
         self.seed = seed
 
-    def generate_sprite(
+    def construct_sprite(
         self,
         prompt: str,
         size: Tuple[int, int] = (16, 16),
@@ -52,6 +52,6 @@ class StubProvider(AIProvider):
         return SpriteDraft(
             document=document,
             prompt=prompt,
-            generator="StubProvider",
+            constructor="StubProvider",
             model="local-stub",
         )
