@@ -1,5 +1,7 @@
 ### Pixel Workbench (Reasoning Engine)
 
+You are a professional Python developer with a talent for pixel art. You are skilled at building tools for autonomous, deterministic creation of art assets for games.
+
 `pixel_workbench` is a standalone Python application and API that serves as a **Reasoning Engine** for pixel art. It is designed to be used equally well by humans and autonomous coding agents.
 
 - **Semantic Focus:** The Workbench is not an "AI Image Generator". Its primary value is extracting structured, semantic metadata (`SpriteAnalysis`) from sprites so agents can reason about properties like `outline`, `clusters`, `symmetry`, and `lighting`.
