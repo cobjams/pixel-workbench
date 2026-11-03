@@ -30,6 +30,14 @@ class SpriteWorkspace:
             "mirror": self.workbench.mirror,
             "crop": self.workbench.crop,
             "resize_canvas": self.workbench.resize_canvas,
+            "draw_line": self.workbench.draw_line,
+            "draw_rect": self.workbench.draw_rect,
+            "draw_ellipse": self.workbench.draw_ellipse,
+            "flood_fill": self.workbench.flood_fill,
+            "generate_outline": self.workbench.generate_outline,
+            "apply_ascii_grid": self.workbench.apply_ascii_grid,
+            "apply_shading": self.workbench.apply_shading,
+            "generate_color_ramp": self.workbench.generate_color_ramp,
             "undo": self.workbench.undo,
             "redo": self.workbench.redo,
             "repair": self.workbench.repair,
@@ -54,3 +62,38 @@ class SpriteWorkspace:
     def update_state(self):
         """Alias for refresh."""
         self.refresh()
+
+    def to_ascii_grid(self, include_legend: bool = True) -> Dict[str, Any]:
+        """Returns a 2D ASCII character grid and legend for the current sprite."""
+        self.refresh()
+        return self.analysis.to_ascii_grid(include_legend=include_legend)
+
+    def apply_ascii_grid(
+        self,
+        grid,
+        legend: Dict[str, Any],
+        offset_x: int = 0,
+        offset_y: int = 0,
+        transparent_behavior: str = "clear"
+    ):
+        """Paints a 2D ASCII character grid onto the document and refreshes workspace state."""
+        self.workbench.apply_ascii_grid(
+            grid,
+            legend,
+            offset_x=offset_x,
+            offset_y=offset_y,
+            transparent_behavior=transparent_behavior
+        )
+        self.refresh()
+
+    def summary(self, include_grid: bool = True) -> Dict[str, Any]:
+        """Returns a complete JSON-serializable mental model of the workspace."""
+        self.refresh()
+        return {
+            "constraints": self.constraints,
+            "project_metadata": self.project_metadata,
+            "analysis": self.analysis.to_dict(include_grid=include_grid),
+            "validation": self.validation,
+            "can_undo": self.history.can_undo(),
+            "can_redo": self.history.can_redo(),
+        }

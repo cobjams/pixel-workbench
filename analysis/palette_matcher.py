@@ -64,26 +64,24 @@ def quantize_to_palette(image: Image.Image, palette_colors: List[Tuple[int, int,
     # though in a real app we'd handle alpha carefully)
     rgb_img = image.convert("RGB")
 
-    # Quantize
-    quantized_img = rgb_img.quantize(palette=pal_img, dither=Image.Dither.NONE)
+    # Quantize (support both Pillow >= 9.1 Image.Dither.NONE and older Image.NONE)
+    dither_none = getattr(Image, "Dither", Image).NONE
+    quantized_img = rgb_img.quantize(palette=pal_img, dither=dither_none)
 
-    # Handle transparency restoration (simplified for v1)
-    if image.mode in ('RGBA', 'LA') or (image.mode == 'P' and 'transparency' in image.info):
+    # Handle transparency restoration
+    has_alpha = image.mode in ('RGBA', 'LA') or (image.mode == 'P' and 'transparency' in image.info)
+    if has_alpha:
         rgba_img = image.convert("RGBA")
-        q_rgba = quantized_img.convert("RGBA")
-
-        # We need to manually apply the alpha mask back
-        # This is a bit of a hack for v1, ideally we use proper indexed transparency
-        for y in range(rgba_img.height):
-            for x in range(rgba_img.width):
-                r, g, b, a = rgba_img.getpixel((x, y))
-                if a == 0:
-                    # Set transparent pixels to index 0 (assuming 0 is transparent)
-                    # In a true P mode with transparency, this requires more care
-                    pass
-
-        # For simplicity in the plugin stub, we return the quantized P image
-        # Further refinement needed for robust alpha handling in P mode
-        pass
+        has_transparent_pixel = any(p[3] == 0 for p in rgba_img.getdata())
+        if has_transparent_pixel:
+            # Reserve the first unused palette slot (or slot 255) for transparency
+            trans_idx = min(len(palette_colors), 255)
+            q_pixels = quantized_img.load()
+            rgba_pixels = rgba_img.load()
+            for y in range(rgba_img.height):
+                for x in range(rgba_img.width):
+                    if rgba_pixels[x, y][3] == 0:
+                        q_pixels[x, y] = trans_idx
+            quantized_img.info['transparency'] = trans_idx
 
     return quantized_img

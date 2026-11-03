@@ -78,10 +78,28 @@ class ReasoningEngine:
         engine = RepairEngine()
         return engine.run(target)
 
-    def compare(self, target: Union[SpriteDraft, Document], reference: Union[str, Document]) -> Dict[str, Any]:
+    def compare(self, target: Union[SpriteDraft, Document, str], reference: Union[str, Document, SpriteDraft]) -> Dict[str, Any]:
         """Compares a sprite against a reference to produce diff semantics."""
-        # Stub for comparison capability
-        return {"similarity_score": 0.0, "differences": []}
+        from ..tools.compare import compare_images
+
+        def _get_image(obj):
+            if isinstance(obj, str):
+                return Image.open(obj)
+            elif isinstance(obj, SpriteDraft):
+                return obj.document.image
+            elif isinstance(obj, Document):
+                return obj.image
+            elif isinstance(obj, Image.Image):
+                return obj
+            raise ValueError("Invalid target or reference for comparison.")
+
+        target_img = _get_image(target)
+        ref_img = _get_image(reference)
+        diff_report = compare_images(ref_img, target_img)
+        total_pixels = max(1, max(target_img.width, ref_img.width) * max(target_img.height, ref_img.height))
+        similarity = max(0.0, 1.0 - (diff_report["changed_pixels"] / total_pixels))
+        diff_report["similarity_score"] = round(similarity, 4)
+        return diff_report
 
     def select_region(self, target: Union[str, Document, SpriteDraft], region_name: str) -> set:
         """

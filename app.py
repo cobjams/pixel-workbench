@@ -6,8 +6,16 @@ from .core.commands import (
     ReplaceColor,
     Mirror,
     Crop,
-    ResizeCanvas
+    ResizeCanvas,
+    DrawLine,
+    DrawRect,
+    DrawEllipse,
+    FloodFill,
+    GenerateOutline,
+    ApplyAsciiGrid,
+    ApplyShading,
 )
+from .core.palette import PaletteOperations
 
 class Workbench:
     """
@@ -81,6 +89,50 @@ class Workbench:
         """Resizes canvas without scaling image (anchored top-left)."""
         cmd = ResizeCanvas(width, height, fill_index, fill_color)
         self._execute_command(cmd, f"resize_canvas {width} {height}")
+
+    def draw_line(self, x0, y0, x1, y1, color):
+        """Draws a 1px Bresenham line between (x0, y0) and (x1, y1)."""
+        cmd = DrawLine(x0, y0, x1, y1, color)
+        self._execute_command(cmd, f"draw_line {x0} {y0} {x1} {y1}")
+
+    def draw_rect(self, x0, y0, x1, y1, color, fill=True):
+        """Draws a filled or outlined rectangle."""
+        cmd = DrawRect(x0, y0, x1, y1, color, fill=fill)
+        self._execute_command(cmd, f"draw_rect {x0} {y0} {x1} {y1}")
+
+    def draw_ellipse(self, x0, y0, x1, y1, color, fill=True):
+        """Draws a filled or outlined pixel-art ellipse."""
+        cmd = DrawEllipse(x0, y0, x1, y1, color, fill=fill)
+        self._execute_command(cmd, f"draw_ellipse {x0} {y0} {x1} {y1}")
+
+    def flood_fill(self, x, y, color):
+        """Contiguous 4-way flood fill starting at (x, y)."""
+        cmd = FloodFill(x, y, color)
+        self._execute_command(cmd, f"flood_fill {x} {y}")
+
+    def generate_outline(self, color="#000000", mode="outside"):
+        """Deterministically generates a 1px outline ('outside' or 'inside') around non-transparent pixels."""
+        cmd = GenerateOutline(color=color, mode=mode)
+        self._execute_command(cmd, f"generate_outline {color} {mode}")
+
+    def apply_ascii_grid(self, grid, legend, offset_x=0, offset_y=0, transparent_behavior="clear"):
+        """Paints a 2D ASCII character grid onto the document."""
+        cmd = ApplyAsciiGrid(grid, legend, offset_x=offset_x, offset_y=offset_y, transparent_behavior=transparent_behavior)
+        self._execute_command(cmd, "apply_ascii_grid")
+
+    def to_ascii_grid(self, include_legend=True):
+        """Returns the current document's 2D ASCII character grid and color legend."""
+        analysis = self.analyze(self.document)
+        return analysis.to_ascii_grid(include_legend=include_legend)
+
+    def apply_shading(self, light_dir="top_left", intensity=0.22):
+        """Applies directional pixel-art highlights and shadows to interior pixels."""
+        cmd = ApplyShading(light_dir=light_dir, intensity=intensity)
+        self._execute_command(cmd, f"apply_shading {light_dir}")
+
+    def generate_color_ramp(self, base_color, steps=4, hue_shift=0.04):
+        """Generates a hue-shifted pixel art color ramp from darkest shadow to brightest highlight."""
+        return PaletteOperations.generate_color_ramp(base_color, steps=steps, hue_shift=hue_shift)
 
     def undo(self):
         """Undoes the last action."""

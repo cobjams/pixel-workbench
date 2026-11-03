@@ -1,7 +1,7 @@
 import math
 from typing import Tuple, List, Set, Dict
-from pixel_workbench.core.document import Document
-from pixel_workbench.analysis.sprite_analysis import SpriteAnalysis
+from ...core.document import Document
+from ..sprite_analysis import SpriteAnalysis
 from .base import RepairRule
 from PIL import Image
 
@@ -124,3 +124,74 @@ class NormalizePaletteRule(RepairRule):
 
     def explain(self) -> str:
         return "Merged near-duplicate colors in the palette."
+
+
+class RemoveJaggiesRule(RepairRule):
+    """
+    Detects and removes 1px L-shaped corner 'doubles' (staircase artifacts) on the sprite outline.
+    Specifically, an outline pixel (x, y) is a removable corner double if:
+      - It has exactly two orthogonal (4-way) neighbors in the outline of the same color,
+        forming a 90-degree corner: e.g. (x+dx, y) and (x, y+dy) are in the outline with the same color,
+      - Those two neighbors are diagonally adjacent to each other,
+      - The opposite side of (x, y) — i.e., (x-dx, y) and (x, y-dy) — are both transparent,
+      - And the interior diagonal (x+dx, y+dy) is opaque (so removing (x, y) exposes the clean diagonal step).
+    """
+    def __init__(self):
+        self.removed_coords: List[Tuple[int, int]] = []
+
+    def _find_corner_doubles(self, document: Document, analysis: SpriteAnalysis) -> List[Tuple[int, int]]:
+        w, h = document.image.size
+        rgba = document.image.convert("RGBA")
+        pixels = rgba.load()
+        outline = analysis.outline
+        candidates = []
+
+        def is_transparent(px, py):
+            if not (0 <= px < w and 0 <= py < h):
+                return True
+            return pixels[px, py][3] == 0
+
+        for x, y in sorted(outline):
+            color = pixels[x, y]
+            if color[3] == 0:
+                continue
+            for dx in (-1, 1):
+                for dy in (-1, 1):
+                    n1 = (x + dx, y)
+                    n2 = (x, y + dy)
+                    diag_in = (x + dx, y + dy)
+                    opp1 = (x - dx, y)
+                    opp2 = (x, y - dy)
+                    opp_diag = (x - dx, y - dy)
+                    if (
+                        n1 in outline
+                        and n2 in outline
+                        and pixels[n1[0], n1[1]] == color
+                        and pixels[n2[0], n2[1]] == color
+                        and 0 <= diag_in[0] < w
+                        and 0 <= diag_in[1] < h
+                        and pixels[diag_in[0], diag_in[1]][3] > 0
+                        and is_transparent(*opp1)
+                        and is_transparent(*opp2)
+                        and is_transparent(*opp_diag)
+                    ):
+                        candidates.append((x, y))
+                        break
+                else:
+                    continue
+                break
+        return candidates
+
+    def applies(self, document: Document, analysis: SpriteAnalysis) -> bool:
+        return len(self._find_corner_doubles(document, analysis)) > 0
+
+    def repair(self, document: Document, analysis: SpriteAnalysis) -> None:
+        self.removed_coords = self._find_corner_doubles(document, analysis)
+        pixels = document.image.load()
+        clear_val = 0 if document.mode == "P" else ((0, 0, 0, 0) if document.mode == "RGBA" else (0, 0, 0))
+        for x, y in self.removed_coords:
+            pixels[x, y] = clear_val
+
+    def explain(self) -> str:
+        return f"Removed {len(self.removed_coords)} L-corner double pixels (jaggies) at {self.removed_coords}."
+

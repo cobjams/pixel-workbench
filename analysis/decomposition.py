@@ -18,13 +18,13 @@ def extract_semantic_regions(analysis: Any) -> Dict[str, Set[Tuple[int, int]]]:
     height = analysis._height
 
     color_to_pixels = {}
+    head_cutoff = max(1, (height + 1) // 2) if height <= 16 else max(1, height // 2)
 
     for y in range(height):
         for x in range(width):
             pixel = analysis._pixels[x, y]
             if pixel[3] > 0:
-                local_y = y % 15
-                if local_y < 8:
+                if y < head_cutoff:
                     regions["head"].add((x, y))
                 else:
                     regions["body"].add((x, y))

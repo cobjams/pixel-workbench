@@ -6,14 +6,31 @@ import json
 def main():
     parser = argparse.ArgumentParser(description="Pixel Workbench")
     parser.add_argument('--script', type=str, help='Path to a DSL script to execute headlessly')
-    parser.add_argument('subcommand_args', nargs='*', help='Subcommands: diff, construct, analyze, review')
+    parser.add_argument('subcommand_args', nargs='*', help='Subcommands: diff, construct, analyze, review, repair, grid, mcp-tools, call-tool')
 
     args, unknown = parser.parse_known_args()
 
     if args.subcommand_args:
         subcommand = args.subcommand_args[0]
 
-        if subcommand in ("construct", "analyze", "review"):
+        if subcommand in ("construct", "analyze", "review", "repair", "grid", "mcp-tools", "call-tool"):
+            if subcommand == "mcp-tools":
+                from .tools.mcp_server import AgentToolServer
+                server = AgentToolServer()
+                print(json.dumps(server.get_tool_schemas(), indent=2))
+                sys.exit(0)
+
+            if subcommand == "call-tool":
+                from .tools.mcp_server import AgentToolServer
+                tool_parser = argparse.ArgumentParser(prog="pixel-workbench call-tool")
+                tool_parser.add_argument("name", type=str)
+                tool_parser.add_argument("--args", type=str, default="{}")
+                tool_args = tool_parser.parse_args(args.subcommand_args[1:] + unknown)
+                server = AgentToolServer()
+                result = server.call_tool(tool_args.name, json.loads(tool_args.args))
+                print(json.dumps(result, indent=2))
+                sys.exit(0)
+
             from .app import Workbench
             wb = Workbench()
 
@@ -49,6 +66,8 @@ def main():
                 cmd_args = cmd_parser.parse_args(args.subcommand_args[1:] + unknown)
 
                 result = wb.analyze(cmd_args.path)
+                if hasattr(result, "to_dict"):
+                    result = result.to_dict()
                 print(json.dumps(result, indent=2))
 
             elif subcommand == "review":
@@ -60,6 +79,24 @@ def main():
                 draft = SpriteDraft(wb.document)
                 result = wb.review(draft)
                 print(json.dumps(result, indent=2))
+
+            elif subcommand == "repair":
+                cmd_parser.add_argument("path", type=str)
+                cmd_parser.add_argument("--output", type=str)
+                cmd_args = cmd_parser.parse_args(args.subcommand_args[1:] + unknown)
+
+                wb.open(cmd_args.path)
+                result = wb.repair()
+                if cmd_args.output:
+                    wb.save(cmd_args.output)
+                print(json.dumps(result, indent=2))
+
+            elif subcommand == "grid":
+                cmd_parser.add_argument("path", type=str)
+                cmd_args = cmd_parser.parse_args(args.subcommand_args[1:] + unknown)
+
+                wb.open(cmd_args.path)
+                print(json.dumps(wb.to_ascii_grid(include_legend=True), indent=2))
 
             sys.exit(0)
 

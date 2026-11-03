@@ -64,8 +64,14 @@ def review_sprite(
         except AttributeError:
              pass
 
-    # 4. Check for stray pixels (Placeholder for cluster analysis)
-    # This is a complex check to do right, so we just add a placeholder metric
+    # 4. Check for stray pixels & jaggies (L-corner doubles)
+    from .sprite_analysis import SpriteAnalysis
+    from .repair.rules import RemoveJaggiesRule
+
+    analysis = SpriteAnalysis(image)
+    isolated = [list(comp)[0] for comp in analysis.connected_components if len(comp) == 1]
+    jaggies_rule = RemoveJaggiesRule()
+    jaggies = jaggies_rule._find_corner_doubles(draft.document, analysis)
 
     # Calculate simple style match score based on lack of warnings
     base_score = 1.0
@@ -75,7 +81,13 @@ def review_sprite(
     report = {
         "validation_passed": len(warnings) == 0,
         "warnings": warnings,
-        "style_match_score": round(score, 2)
+        "style_match_score": round(score, 2),
+        "diagnostics": {
+            "isolated_pixels": isolated,
+            "jaggies_detected": jaggies,
+            "palette_size": len(analysis.palette),
+            "symmetry": analysis.symmetry,
+        },
     }
 
     # Attach report to draft

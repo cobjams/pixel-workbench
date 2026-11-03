@@ -79,3 +79,36 @@ class PaletteOperations:
                 for x in range(w):
                     if pixels[x, y] == old_color:
                         pixels[x, y] = new_color
+
+    @staticmethod
+    def generate_color_ramp(base_color, steps: int = 4, hue_shift: float = 0.04):
+        """
+        Generates a pixel-art color ramp (from darkest shadow to brightest highlight)
+        with subtle warm-highlight / cool-shadow hue shifting.
+        Returns a list of hex color strings.
+        """
+        import colorsys
+        if isinstance(base_color, str):
+            c = base_color.lstrip("#")
+            if len(c) == 3:
+                c = "".join(ch * 2 for ch in c)
+            r, g, b = (int(c[i:i+2], 16) for i in (0, 2, 4))
+        else:
+            r, g, b = base_color[:3]
+
+        h, l, s = colorsys.rgb_to_hls(r / 255.0, g / 255.0, b / 255.0)
+        ramp = []
+        if steps <= 1:
+            return [f"#{r:02x}{g:02x}{b:02x}"]
+
+        mid = (steps - 1) / 2.0
+        for i in range(steps):
+            offset = (i - mid) / max(1.0, mid)  # ranges from -1.0 (darkest) to +1.0 (brightest)
+            # Shift shadows cooler (toward blue/purple ~0.66) and highlights warmer (toward yellow ~0.16)
+            shifted_h = (h - offset * hue_shift) % 1.0
+            shifted_l = max(0.08, min(0.92, l + offset * 0.28))
+            # Slightly boost saturation in shadows, slightly reduce in extreme highlights
+            shifted_s = max(0.0, min(1.0, s - offset * 0.08))
+            nr, ng, nb = colorsys.hls_to_rgb(shifted_h, shifted_l, shifted_s)
+            ramp.append(f"#{int(round(nr * 255)):02x}{int(round(ng * 255)):02x}{int(round(nb * 255)):02x}")
+        return ramp

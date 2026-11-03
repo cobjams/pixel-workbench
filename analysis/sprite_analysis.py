@@ -178,3 +178,79 @@ class SpriteAnalysis:
 
     def get_region(self, name: str) -> Set[Tuple[int, int]]:
         return self.semantic_regions.get(name, set())
+
+    def to_ascii_grid(self, include_legend: bool = True) -> Dict[str, Any]:
+        """
+        Converts the sprite into a 2D ASCII character grid and color legend
+        so coding agents can read and reason about spatial structure directly.
+        """
+        symbols = "123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz@#$%&*+=?~"
+        color_to_char: Dict[Tuple[int, int, int, int], str] = {}
+        legend: Dict[str, str] = {".": "transparent"}
+        next_sym_idx = 0
+
+        rows = []
+        for y in range(self._height):
+            row_chars = []
+            for x in range(self._width):
+                pixel = self._pixels[x, y]
+                if pixel[3] == 0:
+                    row_chars.append(".")
+                else:
+                    if pixel not in color_to_char:
+                        sym = symbols[next_sym_idx % len(symbols)]
+                        next_sym_idx += 1
+                        color_to_char[pixel] = sym
+                        r, g, b, a = pixel
+                        hex_color = f"#{r:02x}{g:02x}{b:02x}" if a == 255 else f"#{r:02x}{g:02x}{b:02x}{a:02x}"
+                        legend[sym] = hex_color
+                    row_chars.append(color_to_char[pixel])
+            rows.append("".join(row_chars))
+
+        result = {
+            "width": self._width,
+            "height": self._height,
+            "grid": rows,
+            "grid_text": "\n".join(rows),
+        }
+        if include_legend:
+            result["legend"] = legend
+        return result
+
+    def to_dict(self, include_grid: bool = True) -> Dict[str, Any]:
+        """
+        Returns a JSON-serializable dictionary of all semantic sprite metrics.
+        """
+        palette_hex = [
+            f"#{r:02x}{g:02x}{b:02x}" if a == 255 else f"#{r:02x}{g:02x}{b:02x}{a:02x}"
+            for r, g, b, a in self.palette
+        ]
+        # Compute bounding box of non-transparent pixels
+        non_transparent = [
+            (x, y)
+            for y in range(self._height)
+            for x in range(self._width)
+            if self._pixels[x, y][3] > 0
+        ]
+        bbox = None
+        if non_transparent:
+            xs = [p[0] for p in non_transparent]
+            ys = [p[1] for p in non_transparent]
+            bbox = [min(xs), min(ys), max(xs), max(ys)]
+
+        data = {
+            "size": [self._width, self._height],
+            "bounding_box": bbox,
+            "palette": palette_hex,
+            "palette_count": len(palette_hex),
+            "transparency_percentage": round(self.transparency_percentage, 2),
+            "component_count": len(self.connected_components),
+            "outline_pixel_count": len(self.outline),
+            "symmetry": self.symmetry,
+            "semantic_region_counts": {
+                k: len(v) for k, v in self.semantic_regions.items()
+            },
+        }
+        if include_grid:
+            data["ascii_representation"] = self.to_ascii_grid(include_legend=True)
+        return data

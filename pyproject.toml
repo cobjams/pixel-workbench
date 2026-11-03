@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=42"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pixel-workbench"
+version = "0.2.0"
+description = "Semantic Reasoning and Deterministic Construction Engine for Pixel Art"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "Pillow>=7.0.0",
+]
+
+[project.scripts]
+pixel-workbench = "pixel_workbench.__main__:main"
