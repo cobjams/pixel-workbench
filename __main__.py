@@ -6,18 +6,24 @@ import json
 def main():
     parser = argparse.ArgumentParser(description="Pixel Workbench")
     parser.add_argument('--script', type=str, help='Path to a DSL script to execute headlessly')
-    parser.add_argument('subcommand_args', nargs='*', help='Subcommands: diff, construct, analyze, review, repair, grid, mcp-tools, call-tool')
+    parser.add_argument('subcommand_args', nargs='*', help='Subcommands: diff, construct, analyze, review, repair, grid, regression, mcp-tools, mcp-serve, call-tool')
 
     args, unknown = parser.parse_known_args()
 
     if args.subcommand_args:
         subcommand = args.subcommand_args[0]
 
-        if subcommand in ("construct", "analyze", "review", "repair", "grid", "mcp-tools", "call-tool"):
+        if subcommand in ("construct", "analyze", "review", "repair", "grid", "regression", "mcp-tools", "mcp-serve", "call-tool"):
             if subcommand == "mcp-tools":
                 from .tools.mcp_server import AgentToolServer
                 server = AgentToolServer()
                 print(json.dumps(server.get_tool_schemas(), indent=2))
+                sys.exit(0)
+
+            if subcommand == "mcp-serve":
+                from .tools.mcp_server import AgentToolServer
+                server = AgentToolServer()
+                server.serve_stdio()
                 sys.exit(0)
 
             if subcommand == "call-tool":
@@ -83,12 +89,21 @@ def main():
             elif subcommand == "repair":
                 cmd_parser.add_argument("path", type=str)
                 cmd_parser.add_argument("--output", type=str)
+                cmd_parser.add_argument("--dry-run", action="store_true")
                 cmd_args = cmd_parser.parse_args(args.subcommand_args[1:] + unknown)
 
                 wb.open(cmd_args.path)
-                result = wb.repair()
-                if cmd_args.output:
+                result = wb.repair(dry_run=cmd_args.dry_run)
+                if cmd_args.output and not cmd_args.dry_run:
                     wb.save(cmd_args.output)
+                print(json.dumps(result, indent=2))
+
+            elif subcommand == "regression":
+                cmd_parser.add_argument("before", type=str)
+                cmd_parser.add_argument("after", type=str)
+                cmd_args = cmd_parser.parse_args(args.subcommand_args[1:] + unknown)
+
+                result = wb.regression_report(cmd_args.before, cmd_args.after)
                 print(json.dumps(result, indent=2))
 
             elif subcommand == "grid":

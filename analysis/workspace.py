@@ -45,9 +45,35 @@ class SpriteWorkspace:
 
         self.analysis = None
         self.validation = None
+        self.checkpoints: Dict[str, Document] = {}
+
+        if self.document and self.document.image:
+            self.checkpoint("initial")
 
         # Initial refresh
         self.refresh()
+
+    def checkpoint(self, name: str = "baseline") -> None:
+        """Saves a named snapshot of the current document for visual regression comparisons."""
+        if self.document and self.document.image:
+            snap = Document()
+            snap.image = self.document.image.copy()
+            snap.original_mode = self.document.original_mode or self.document.image.mode
+            if "transparency" in self.document.image.info:
+                snap.image.info["transparency"] = self.document.image.info["transparency"]
+            self.checkpoints[name] = snap
+
+    def regression_report(
+        self,
+        checkpoint_name: str = "initial",
+        reference: Optional[Any] = None
+    ) -> Dict[str, Any]:
+        """
+        Compares the current workspace sprite against a saved checkpoint (or explicit reference)
+        and runs the pixel-art QA regression suite.
+        """
+        base = reference or self.checkpoints.get(checkpoint_name) or self.document
+        return self.workbench.regression_report(base, self.document, constraints=self.constraints)
 
     def refresh(self):
         """
@@ -74,7 +100,9 @@ class SpriteWorkspace:
         legend: Dict[str, Any],
         offset_x: int = 0,
         offset_y: int = 0,
-        transparent_behavior: str = "clear"
+        transparent_behavior: str = "clear",
+        preserve_whitespace: Optional[bool] = None,
+        strict: bool = False
     ):
         """Paints a 2D ASCII character grid onto the document and refreshes workspace state."""
         self.workbench.apply_ascii_grid(
@@ -82,7 +110,9 @@ class SpriteWorkspace:
             legend,
             offset_x=offset_x,
             offset_y=offset_y,
-            transparent_behavior=transparent_behavior
+            transparent_behavior=transparent_behavior,
+            preserve_whitespace=preserve_whitespace,
+            strict=strict,
         )
         self.refresh()
 

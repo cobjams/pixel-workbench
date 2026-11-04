@@ -115,9 +115,26 @@ class Workbench:
         cmd = GenerateOutline(color=color, mode=mode)
         self._execute_command(cmd, f"generate_outline {color} {mode}")
 
-    def apply_ascii_grid(self, grid, legend, offset_x=0, offset_y=0, transparent_behavior="clear"):
+    def apply_ascii_grid(
+        self,
+        grid,
+        legend,
+        offset_x=0,
+        offset_y=0,
+        transparent_behavior="clear",
+        preserve_whitespace=None,
+        strict=False
+    ):
         """Paints a 2D ASCII character grid onto the document."""
-        cmd = ApplyAsciiGrid(grid, legend, offset_x=offset_x, offset_y=offset_y, transparent_behavior=transparent_behavior)
+        cmd = ApplyAsciiGrid(
+            grid,
+            legend,
+            offset_x=offset_x,
+            offset_y=offset_y,
+            transparent_behavior=transparent_behavior,
+            preserve_whitespace=preserve_whitespace,
+            strict=strict,
+        )
         self._execute_command(cmd, "apply_ascii_grid")
 
     def to_ascii_grid(self, include_legend=True):
@@ -157,9 +174,28 @@ class Workbench:
         """Reviews a sprite for structural and artistic flaws. Defaults to active document."""
         return self.engine.review(target or self.document, style_reference, expected_size)
 
-    def repair(self, target=None):
+    def repair(
+        self,
+        target=None,
+        dry_run=False,
+        safe=True,
+        include_jaggies=False,
+        rule_names=None,
+        protect_coords=None
+    ):
         """Deterministically repairs common pixel-art flaws. Defaults to active document."""
-        return self.engine.repair(target or self.document)
+        return self.engine.repair(
+            target or self.document,
+            dry_run=dry_run,
+            safe=safe,
+            include_jaggies=include_jaggies,
+            rule_names=rule_names,
+            protect_coords=protect_coords,
+        )
+
+    def regression_report(self, before, after=None, constraints=None):
+        """Generates a semantic visual regression & QA report comparing 'before' and 'after' (defaults to active document)."""
+        return self.engine.regression_report(before, after or self.document, constraints=constraints)
 
     def compare(self, reference, target=None):
         """Compares the current sprite conceptually against a reference."""

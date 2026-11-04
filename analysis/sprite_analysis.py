@@ -18,9 +18,7 @@ class SpriteAnalysis:
         self._connected_components: Optional[List[Set[Tuple[int, int]]]] = None
         self._outline: Optional[Set[Tuple[int, int]]] = None
         self._symmetry: Optional[Dict[str, float]] = None
-
-        # For v1, clusters will remain empty/None as requested
-        self.clusters: Optional[List[Any]] = None
+        self._clusters: Optional[List[Dict[str, Any]]] = None
 
     @property
     def palette(self) -> List[Tuple[int, int, int, int]]:
@@ -170,6 +168,61 @@ class SpriteAnalysis:
         }
 
     @property
+    def clusters(self) -> List[Dict[str, Any]]:
+        """
+        Returns 4-way color-connected clusters of opaque pixels.
+        Each cluster contains:
+          - color: (r, g, b, a)
+          - hex: hex color string
+          - pixels: Set[(x, y)]
+          - size: int
+          - touches_transparency: bool
+          - is_interior_detail: bool (True if completely surrounded by opaque pixels, e.g. an eye or highlight)
+        """
+        if self._clusters is None:
+            self._clusters = self._compute_color_clusters()
+        return self._clusters
+
+    def _compute_color_clusters(self) -> List[Dict[str, Any]]:
+        visited = set()
+        clusters = []
+        for y in range(self._height):
+            for x in range(self._width):
+                pixel = self._pixels[x, y]
+                if (x, y) not in visited and pixel[3] > 0:
+                    comp = set()
+                    queue = [(x, y)]
+                    visited.add((x, y))
+                    touches_trans = False
+
+                    while queue:
+                        cx, cy = queue.pop(0)
+                        comp.add((cx, cy))
+                        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                            nx, ny = cx + dx, cy + dy
+                            if nx < 0 or nx >= self._width or ny < 0 or ny >= self._height:
+                                touches_trans = True
+                            else:
+                                npix = self._pixels[nx, ny]
+                                if npix[3] == 0:
+                                    touches_trans = True
+                                elif (nx, ny) not in visited and npix == pixel:
+                                    visited.add((nx, ny))
+                                    queue.append((nx, ny))
+
+                    r, g, b, a = pixel
+                    hex_c = f"#{r:02x}{g:02x}{b:02x}" if a == 255 else f"#{r:02x}{g:02x}{b:02x}{a:02x}"
+                    clusters.append({
+                        "color": pixel,
+                        "hex": hex_c,
+                        "pixels": comp,
+                        "size": len(comp),
+                        "touches_transparency": touches_trans,
+                        "is_interior_detail": not touches_trans,
+                    })
+        return clusters
+
+    @property
     def semantic_regions(self) -> Dict[str, Set[Tuple[int, int]]]:
         if not hasattr(self, '_semantic_regions') or self._semantic_regions is None:
             from .decomposition import extract_semantic_regions
@@ -183,11 +236,17 @@ class SpriteAnalysis:
         """
         Converts the sprite into a 2D ASCII character grid and color legend
         so coding agents can read and reason about spatial structure directly.
+        Guaranteed lossless (1 character per pixel, no palette collisions).
         """
-        symbols = "123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz@#$%&*+=?~"
+        symbols = "123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz@#$%&*+=?~^!/:;<>|_"
         color_to_char: Dict[Tuple[int, int, int, int], str] = {}
         legend: Dict[str, str] = {".": "transparent"}
         next_sym_idx = 0
+
+        def _alloc_symbol(idx: int) -> str:
+            if idx < len(symbols):
+                return symbols[idx]
+            return chr(0x0100 + (idx - len(symbols)))
 
         rows = []
         for y in range(self._height):
@@ -198,7 +257,7 @@ class SpriteAnalysis:
                     row_chars.append(".")
                 else:
                     if pixel not in color_to_char:
-                        sym = symbols[next_sym_idx % len(symbols)]
+                        sym = _alloc_symbol(next_sym_idx)
                         next_sym_idx += 1
                         color_to_char[pixel] = sym
                         r, g, b, a = pixel

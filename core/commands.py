@@ -253,6 +253,8 @@ class ApplyAsciiGrid(Command):
     """
     Paints a 2D ASCII character grid onto the document at (offset_x, offset_y).
     '.' or ' ' maps to transparent (or skipped if transparent_behavior='skip').
+    Preserves exact coordinates for blank rows and leading/trailing spaces when
+    space-based grids or List[str] grids are provided.
     """
     def __init__(
         self,
@@ -260,22 +262,70 @@ class ApplyAsciiGrid(Command):
         legend: Dict[str, Any],
         offset_x: int = 0,
         offset_y: int = 0,
-        transparent_behavior: str = "clear"
+        transparent_behavior: str = "clear",
+        preserve_whitespace: Optional[bool] = None,
+        strict: bool = False
     ):
-        if isinstance(grid, str):
-            raw_lines = [line.rstrip("\r") for line in grid.splitlines() if line.strip() != ""]
-            # Strip common leading/trailing whitespace only if lines have uniform indentation
-            lines = [line.strip() for line in raw_lines]
-        else:
-            lines = [str(line).strip() for line in grid]
-        self.lines = lines
-        self.legend = legend
+        self.legend = legend or {}
         self.offset_x = int(offset_x)
         self.offset_y = int(offset_y)
         self.transparent_behavior = transparent_behavior
+        self.strict = bool(strict)
+
+        if isinstance(grid, list):
+            # Exact row list: never strip characters or drop blank rows
+            lines = [str(line) for line in grid]
+        elif isinstance(grid, str):
+            normalized = grid.replace("\r\n", "\n").replace("\r", "\n")
+            raw_lines = normalized.split("\n")
+
+            # Determine whether spaces are significant pixel characters
+            if preserve_whitespace is None:
+                space_is_pixel = (" " in self.legend) or ("." not in normalized)
+            else:
+                space_is_pixel = bool(preserve_whitespace)
+
+            if space_is_pixel:
+                # Only drop a single leading/trailing empty line caused by triple-quoted """\n...\n"""
+                if len(raw_lines) > 1 and raw_lines[0] == "":
+                    raw_lines = raw_lines[1:]
+                if len(raw_lines) > 1 and raw_lines[-1] == "":
+                    raw_lines = raw_lines[:-1]
+                lines = raw_lines
+            else:
+                # '.' is used for transparency and ' ' is not in legend:
+                # strip outer blank wrapper lines from multiline literals and strip indentation spaces
+                while raw_lines and raw_lines[0].strip(" \t") == "":
+                    raw_lines.pop(0)
+                while raw_lines and raw_lines[-1].strip(" \t") == "":
+                    raw_lines.pop()
+                lines = [line.strip(" \t") for line in raw_lines]
+        else:
+            raise ValueError("grid must be a string or list of strings.")
+
+        if self.strict and lines:
+            expected_len = len(lines[0])
+            for idx, row_str in enumerate(lines):
+                if len(row_str) != expected_len:
+                    raise ValueError(
+                        f"Ragged ASCII grid row at index {idx}: expected width {expected_len}, got {len(row_str)}."
+                    )
+
+        self.lines = lines
 
     def execute(self, document):
         w, h = document.width, document.height
+        if self.strict:
+            if self.offset_y < 0 or self.offset_y + len(self.lines) > h:
+                raise ValueError(
+                    f"ASCII grid height ({len(self.lines)} at offset_y={self.offset_y}) exceeds canvas height ({h})."
+                )
+            for row_str in self.lines:
+                if self.offset_x < 0 or self.offset_x + len(row_str) > w:
+                    raise ValueError(
+                        f"ASCII grid width ({len(row_str)} at offset_x={self.offset_x}) exceeds canvas width ({w})."
+                    )
+
         pixels = document.image.load()
         parsed_legend = {}
         for ch, col in self.legend.items():
@@ -294,16 +344,18 @@ class ApplyAsciiGrid(Command):
                 x = self.offset_x + col_idx
                 if not (0 <= x < w):
                     continue
-                if ch in (".", " ") and parsed_legend.get(ch) is None:
-                    if self.transparent_behavior == "clear":
-                        pixels[x, y] = clear_val
-                elif ch in parsed_legend:
+                if ch in parsed_legend:
                     val = parsed_legend[ch]
                     if val is None:
                         if self.transparent_behavior == "clear":
                             pixels[x, y] = clear_val
                     else:
                         pixels[x, y] = val
+                elif ch in (".", " "):
+                    if self.transparent_behavior == "clear":
+                        pixels[x, y] = clear_val
+                elif self.strict:
+                    raise ValueError(f"Character '{ch}' at ({x}, {y}) not found in legend.")
 
 
 class ApplyShading(Command):

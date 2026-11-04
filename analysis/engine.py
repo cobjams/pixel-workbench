@@ -69,14 +69,42 @@ class ReasoningEngine:
         draft = target if isinstance(target, SpriteDraft) else SpriteDraft(document=target)
         return review_sprite(draft, style_reference, expected_size)
 
-    def repair(self, target: Union[SpriteDraft, Document]) -> Dict[str, Any]:
+    def repair(
+        self,
+        target: Union[SpriteDraft, Document],
+        dry_run: bool = False,
+        safe: bool = True,
+        include_jaggies: bool = False,
+        rule_names: Optional[list] = None,
+        protect_coords: Optional[set] = None
+    ) -> Dict[str, Any]:
         """
         Automatically fixes common issues (e.g. noise, palette inconsistencies).
-        Returns a report of what was repaired.
+        Supports dry_run=True, safe=True (preserving accents/symmetric details),
+        and coordinate protection.
         """
         from .repair.engine import RepairEngine
-        engine = RepairEngine()
-        return engine.run(target)
+        engine = RepairEngine(
+            include_jaggies=include_jaggies,
+            safe=safe,
+            protect_coords=protect_coords,
+            rule_names=rule_names,
+        )
+        return engine.run(target, dry_run=dry_run)
+
+    def regression_report(
+        self,
+        before: Union[SpriteDraft, Document, str],
+        after: Union[SpriteDraft, Document, str],
+        constraints: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Generates a semantic visual regression and pixel-art QA report between before and after.
+        """
+        from .regression import generate_regression_report
+        b_doc = before.document if isinstance(before, SpriteDraft) else before
+        a_doc = after.document if isinstance(after, SpriteDraft) else after
+        return generate_regression_report(b_doc, a_doc, constraints=constraints)
 
     def compare(self, target: Union[SpriteDraft, Document, str], reference: Union[str, Document, SpriteDraft]) -> Dict[str, Any]:
         """Compares a sprite against a reference to produce diff semantics."""
