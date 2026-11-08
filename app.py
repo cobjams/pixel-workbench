@@ -14,6 +14,7 @@ from .core.commands import (
     GenerateOutline,
     ApplyAsciiGrid,
     ApplyShading,
+    ShiftRegion,
 )
 from .core.palette import PaletteOperations
 
@@ -89,6 +90,11 @@ class Workbench:
         """Resizes canvas without scaling image (anchored top-left)."""
         cmd = ResizeCanvas(width, height, fill_index, fill_color)
         self._execute_command(cmd, f"resize_canvas {width} {height}")
+
+    def shift_region(self, dx, dy, left=None, upper=None, right=None, lower=None):
+        """Shifts pixels within [left, right) x [upper, lower) (or full canvas) by (dx, dy)."""
+        cmd = ShiftRegion(dx, dy, left=left, upper=upper, right=right, lower=lower)
+        self._execute_command(cmd, f"shift_region {dx} {dy}")
 
     def draw_line(self, x0, y0, x1, y1, color):
         """Draws a 1px Bresenham line between (x0, y0) and (x1, y1)."""

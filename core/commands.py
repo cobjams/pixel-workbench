@@ -528,3 +528,57 @@ class ResizeCanvas(Command):
 
         new_img.paste(document.image, (0, 0))
         document.image = new_img
+
+
+class ShiftRegion(Command):
+    """
+    Shifts pixels within a rectangular region [left, right) x [upper, lower) by (dx, dy)
+    without bleeding outside the region bounds. Useful for centering sprites or aligning
+    individual animation frames on a sprite sheet.
+    """
+    def __init__(
+        self,
+        dx: int,
+        dy: int,
+        left: Optional[int] = None,
+        upper: Optional[int] = None,
+        right: Optional[int] = None,
+        lower: Optional[int] = None,
+    ):
+        self.dx = int(dx)
+        self.dy = int(dy)
+        self.left = left
+        self.upper = upper
+        self.right = right
+        self.lower = lower
+
+    def execute(self, document):
+        w, h = document.width, document.height
+        x0 = max(0, int(self.left) if self.left is not None else 0)
+        y0 = max(0, int(self.upper) if self.upper is not None else 0)
+        x1 = min(w, int(self.right) if self.right is not None else w)
+        y1 = min(h, int(self.lower) if self.lower is not None else h)
+
+        if x0 >= x1 or y0 >= y1 or (self.dx == 0 and self.dy == 0):
+            return
+
+        pixels = document.image.load()
+        if document.mode == "P":
+            trans_idx = document.image.info.get("transparency")
+            clear_val = trans_idx if isinstance(trans_idx, int) else 0
+        elif document.mode == "RGBA":
+            clear_val = (0, 0, 0, 0)
+        else:
+            clear_val = (0, 0, 0)
+
+        snapshot = {}
+        for y in range(y0, y1):
+            for x in range(x0, x1):
+                snapshot[(x, y)] = pixels[x, y]
+                pixels[x, y] = clear_val
+
+        for (x, y), val in snapshot.items():
+            nx, ny = x + self.dx, y + self.dy
+            if x0 <= nx < x1 and y0 <= ny < y1:
+                pixels[nx, ny] = val
+

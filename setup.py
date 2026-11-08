@@ -2,8 +2,9 @@ from setuptools import setup
 
 setup(
     name="pixel-workbench",
-    version="0.2.0",
-    description="Semantic Reasoning and Deterministic Construction Engine for Pixel Art",
+    version="0.3.0",
+    description="Semantic Reasoning and Deterministic Construction Engine for Pixel Art (with MCP Server)",
+    license="MIT",
     package_dir={"pixel_workbench": "."},
     packages=[
         "pixel_workbench",
@@ -16,6 +17,7 @@ setup(
         "pixel_workbench.tools",
     ],
     install_requires=["Pillow>=7.0.0"],
+    python_requires=">=3.8",
     entry_points={
         "console_scripts": [
             "pixel-workbench=pixel_workbench.__main__:main",

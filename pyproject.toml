@@ -1,16 +1,37 @@
 [build-system]
-requires = ["setuptools>=42"]
+requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "pixel-workbench"
-version = "0.2.0"
-description = "Semantic Reasoning and Deterministic Construction Engine for Pixel Art"
+version = "0.3.0"
+description = "Semantic Reasoning and Deterministic Construction Engine for Pixel Art (with MCP Server)"
 readme = "README.md"
+license = {file = "LICENSE"}
 requires-python = ">=3.8"
+keywords = ["pixel-art", "sprite", "mcp", "model-context-protocol", "ai-agents", "gamedev", "qa"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Games/Entertainment",
+    "Topic :: Multimedia :: Graphics :: Editors :: Raster-Based",
+    "Topic :: Software Development :: Quality Assurance",
+]
 dependencies = [
     "Pillow>=7.0.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/cobjams/pixel-workbench"
+Repository = "https://github.com/cobjams/pixel-workbench"
+Issues = "https://github.com/cobjams/pixel-workbench/issues"
 
 [project.scripts]
 pixel-workbench = "pixel_workbench.__main__:main"

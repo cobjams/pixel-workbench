@@ -170,23 +170,49 @@ class TestPriority3MCPProtocolIntegration(unittest.TestCase):
         out_path = "/workspace/gentle-curie/test_mcp_e2e_out.png"
         try:
             with MCPStdioClient() as client:
-                # 1. Initialize handshake
+                # 1. Initialize handshake (including instructions, resources, prompts capabilities)
                 init_res = client.initialize()
                 self.assertEqual(init_res["serverInfo"]["name"], "pixel-workbench")
                 self.assertIn("tools", init_res["capabilities"])
+                self.assertIn("resources", init_res["capabilities"])
+                self.assertIn("prompts", init_res["capabilities"])
+                self.assertIn("instructions", init_res)
+                self.assertIn("6-step", init_res["instructions"])
 
-                # 2. Discover tools
+                # 2. Discover tools, annotations, resources, and prompts
                 tools = client.list_tools()
                 tool_names = {t["name"] for t in tools}
                 self.assertIn("init_workspace", tool_names)
                 self.assertIn("apply_ascii_grid", tool_names)
+                self.assertIn("transform_sprite", tool_names)
+                self.assertIn("undo_redo", tool_names)
+                self.assertIn("inspect_animation", tool_names)
                 self.assertIn("regression_report", tool_names)
                 self.assertIn("lint_and_repair", tool_names)
+                for t in tools:
+                    self.assertIn("annotations", t)
+                    self.assertIn("readOnlyHint", t["annotations"])
 
-                # 3. Execute workflow: init -> checkpoint -> draw -> outline -> regression_report -> save
+                resources = client.list_resources()
+                res_uris = {r["uri"] for r in resources}
+                self.assertIn("sprite://current/summary", res_uris)
+                self.assertIn("sprite://current/grid", res_uris)
+
+                prompts = client.list_prompts()
+                prompt_names = {p["name"] for p in prompts}
+                self.assertIn("construct-sprite", prompt_names)
+                self.assertIn("audit-animation", prompt_names)
+                p_detail = client.get_prompt("construct-sprite", {"subject": "shield", "size": "16x16"})
+                self.assertIn("shield", p_detail["description"])
+
+                # 3. Execute workflow: init -> checkpoint -> draw -> transform -> undo/redo -> outline -> regression_report -> save
                 r_init = client.call_tool("init_workspace", {"width": 8, "height": 8, "prompt": "mcp gem"})
                 self.assertFalse(r_init["isError"])
                 self.assertEqual(r_init["data"]["analysis"]["size"], [8, 8])
+
+                # Read MCP resource for current grid
+                grid_res = client.read_resource("sprite://current/grid")
+                self.assertEqual(grid_res[0]["uri"], "sprite://current/grid")
 
                 r_draw = client.call_tool(
                     "draw_shape",
@@ -198,6 +224,27 @@ class TestPriority3MCPProtocolIntegration(unittest.TestCase):
                 content_types = [c["type"] for c in r_draw["raw_content"]]
                 self.assertIn("text", content_types)
                 self.assertIn("image", content_types)
+
+                # Test transform_sprite + undo_redo
+                r_paint = client.call_tool(
+                    "transform_sprite",
+                    {"operation": "paint_pixel", "x": 0, "y": 0, "color": "#ff0000"},
+                )
+                self.assertFalse(r_paint["isError"])
+                self.assertIn("#ff0000", r_paint["data"]["analysis"]["palette"])
+
+                r_undo = client.call_tool("undo_redo", {"action": "undo"})
+                self.assertFalse(r_undo["isError"])
+                self.assertTrue(r_undo["data"]["applied"])
+                self.assertNotIn("#ff0000", r_undo["data"]["analysis"]["palette"])
+
+                r_redo = client.call_tool("undo_redo", {"action": "redo"})
+                self.assertFalse(r_redo["isError"])
+                self.assertTrue(r_redo["data"]["applied"])
+                self.assertIn("#ff0000", r_redo["data"]["analysis"]["palette"])
+
+                # Undo the stray red pixel before continuing
+                client.call_tool("undo_redo", {"action": "undo"})
 
                 r_cp = client.call_tool("checkpoint_workspace", {"name": "after_box"})
                 self.assertFalse(r_cp["isError"])
@@ -218,6 +265,38 @@ class TestPriority3MCPProtocolIntegration(unittest.TestCase):
                 r_save = client.call_tool("save_sprite", {"filepath": out_path})
                 self.assertFalse(r_save["isError"])
                 self.assertTrue(os.path.exists(out_path))
+
+                # Test inspect_animation + shift_region on a 2-frame (16x8) strip in a second workspace_id
+                client.call_tool("init_workspace", {"width": 16, "height": 8, "workspace_id": "anim_ws"})
+                client.call_tool(
+                    "draw_shape",
+                    {"shape": "rect", "x0": 2, "y0": 2, "x1": 5, "y1": 5, "color": "#2266dd", "workspace_id": "anim_ws"},
+                )
+                # Frame 1 (x=8..15) is shifted 2px left (at x=8..11 instead of 10..13)
+                client.call_tool(
+                    "draw_shape",
+                    {"shape": "rect", "x0": 8, "y0": 2, "x1": 11, "y1": 5, "color": "#2266dd", "workspace_id": "anim_ws"},
+                )
+                r_anim_before = client.call_tool(
+                    "inspect_animation",
+                    {"frame_width": 8, "frame_height": 8, "max_anchor_shift": 0.5, "workspace_id": "anim_ws"},
+                )
+                self.assertFalse(r_anim_before["isError"])
+                self.assertFalse(r_anim_before["data"]["passed"])
+                self.assertEqual(r_anim_before["data"]["max_anchor_shift"], 2.0)
+
+                # Shift Frame 1 region [8, 0, 16, 8] by dx=+2
+                client.call_tool(
+                    "transform_sprite",
+                    {"operation": "shift_region", "dx": 2, "dy": 0, "left": 8, "upper": 0, "right": 16, "lower": 8, "workspace_id": "anim_ws"},
+                )
+                r_anim_after = client.call_tool(
+                    "inspect_animation",
+                    {"frame_width": 8, "frame_height": 8, "max_anchor_shift": 0.5, "workspace_id": "anim_ws"},
+                )
+                self.assertFalse(r_anim_after["isError"])
+                self.assertTrue(r_anim_after["data"]["passed"])
+                self.assertEqual(r_anim_after["data"]["max_anchor_shift"], 0.0)
 
                 # 4. Structured error responses
                 r_unknown = client.call_tool("non_existent_tool", {})

@@ -27,7 +27,7 @@ Through its Model Context Protocol (MCP) server, compatible AI coding agents can
 
 ### 1. Deterministic Construction from an ASCII Grid
 
-An agent constructs a 16×16 inventory icon ([`golden_key.png`](golden_key.png)) from scratch using a 2D ASCII character grid and a 5-color hex ramp via `apply_ascii_grid`:
+An agent constructs a 16×16 inventory icon ([`golden_key.png`](docs/assets/golden_key.png)) from scratch using a 2D ASCII character grid and a 5-color hex ramp via `apply_ascii_grid`:
 
 <table>
 <tr>
@@ -76,7 +76,7 @@ An agent constructs a 16×16 inventory icon ([`golden_key.png`](golden_key.png))
 
 ### 2. Targeted Modification on an Indexed Sprite Sheet
 
-Starting from a 128×128 16-frame indexed (`P`-mode) RPG character sheet ([`test_sprite_sheet.png`](test_sprite_sheet.png)), an agent modifies exactly **2 pixels** (`(16, 16)` and `(16, 17)`) on Frame 0 to add a bright clasp detail to the character's tunic ([`test_sprite_sheet_edited.png`](test_sprite_sheet_edited.png)).
+Starting from a 128×128 16-frame indexed (`P`-mode) RPG character sheet ([`test_sprite_sheet.png`](docs/assets/test_sprite_sheet.png)), an agent modifies exactly **2 pixels** (`(16, 16)` and `(16, 17)`) on Frame 0 to add a bright clasp detail to the character's tunic ([`test_sprite_sheet_edited.png`](docs/assets/test_sprite_sheet_edited.png)).
 
 `compare_images` verifies that `changed_pixels == 2`, zero unauthorized colors were introduced, the indexed color table remained intact, and all other 15 animation frames were untouched:
 
@@ -103,11 +103,11 @@ Starting from a 128×128 16-frame indexed (`P`-mode) RPG character sheet ([`test
 
 ### 3. Diagnosing and Correcting Animation Alignment
 
-When inspecting the 4-frame front-facing walk cycle (`y = 0..31`), semantic bounding-box analysis revealed two issues in [`test_sprite_sheet_edited.png`](test_sprite_sheet_edited.png):
+When inspecting the 4-frame front-facing walk cycle (`y = 0..31`), semantic bounding-box analysis revealed two issues in [`test_sprite_sheet_edited.png`](docs/assets/test_sprite_sheet_edited.png):
 1. The new 2px tunic clasp only existed on Frame 0 and flickered off in Frames 1–3.
 2. Frames 1, 2, and 3 (`bbox x = 3..24, 4..25, 5..26`) were offset **2 pixels left** relative to Frame 0 (`bbox x = 6..27`), causing the character to lurch sideways during the walk cycle.
 
-Synchronizing the tunic clasp across all four poses and shifting Frames 1–3 by `+2px` horizontally ([`test_sprite_sheet_edited_animation_ready.png`](test_sprite_sheet_edited_animation_ready.png) / [`test_sprite_sheet_front_128x32.png`](test_sprite_sheet_front_128x32.png)) stabilizes the walk cycle on the frame center axis (`x = 16`):
+Synchronizing the tunic clasp across all four poses and shifting Frames 1–3 by `+2px` horizontally ([`test_sprite_sheet_edited_animation_ready.png`](docs/assets/test_sprite_sheet_edited_animation_ready.png) / [`test_sprite_sheet_front_128x32.png`](docs/assets/test_sprite_sheet_front_128x32.png)) stabilizes the walk cycle on the frame center axis (`x = 16`):
 
 <table>
 <tr>
@@ -161,19 +161,19 @@ pip install -e .
 
 ```bash
 # Inspect semantic metrics (palette, clusters, outline, symmetry) and output JSON
-python3 -m pixel_workbench analyze golden_key.png
+python3 -m pixel_workbench analyze docs/assets/golden_key.png
 
 # Output the lossless 2D ASCII character grid and color legend
-python3 -m pixel_workbench grid golden_key.png
+python3 -m pixel_workbench grid docs/assets/golden_key.png
 
 # Preview proposed context-aware repairs without modifying the file (--dry-run)
-python3 -m pixel_workbench repair golden_key.png --dry-run
+python3 -m pixel_workbench repair docs/assets/golden_key.png --dry-run
 
 # Run a pixel diff and QA regression report between two sprites
-python3 -m pixel_workbench regression test_sprite_sheet.png test_sprite_sheet_edited.png
+python3 -m pixel_workbench regression docs/assets/test_sprite_sheet.png docs/assets/test_sprite_sheet_edited.png
 
 # Export a visual diff image and JSON comparison report
-python3 -m pixel_workbench diff test_sprite_sheet.png test_sprite_sheet_edited.png --image diff.png --json diff.json
+python3 -m pixel_workbench diff docs/assets/test_sprite_sheet.png docs/assets/test_sprite_sheet_edited.png --image diff.png --json diff.json
 ```
 
 ### Start the MCP Server
@@ -199,6 +199,26 @@ Add `pixel-workbench` to your MCP client configuration (Claude Code, Cursor, Cod
   }
 }
 ```
+
+Or if installed via `pipx` / `uv`:
+
+```json
+{
+  "mcpServers": {
+    "pixel-workbench": {
+      "command": "uvx",
+      "args": ["--from", "/path/to/pixel-workbench", "pixel-workbench", "mcp-serve"]
+    }
+  }
+}
+```
+
+### Agent Customizations (`AGENTS.md` &amp; `SKILL.md`)
+
+Pixel Workbench ships with built-in agent instructions at three levels:
+1. **MCP `initialize` Instructions &amp; Prompts:** Any MCP client connecting to `pixel-workbench mcp-serve` automatically receives the 6-step workflow instructions, live `sprite://current/*` resources, and prompt templates (`construct-sprite`, `edit-sprite-sheet`, `audit-animation`).
+2. **On-Demand Agent Skill ([`.agents/skills/pixel-workbench/SKILL.md`](.agents/skills/pixel-workbench/SKILL.md)):** Progressive-disclosure skill playbooks for constructing icons, patching indexed `P`-mode sprite sheets, and aligning walk cycles.
+3. **Repository Rules ([`AGENTS.md`](AGENTS.md)):** Architectural context for agents developing or extending Pixel Workbench itself.
 
 ---
 
@@ -251,18 +271,32 @@ Pixel Workbench includes a lightweight MCP server using native Python JSON-RPC 2
 
 ### Exposed MCP Tools
 
-| Tool Name | Description |
-| :--- | :--- |
-| `init_workspace` | Initialize a blank sprite workspace or load an existing PNG with optional QA constraints. |
-| `inspect_sprite` | Return structured semantic analysis (`SpriteAnalysis`), validation diagnostics, and the 2D ASCII grid. |
-| `apply_ascii_grid` | Paint or patch the sprite via a 2D ASCII grid and character-to-hex legend (`preserve_whitespace`, `strict`). |
-| `draw_shape` | Draw deterministic `line`, `rect`, `ellipse` (requires `x0, y0, x1, y1, color`), or `flood_fill` (`x0, y0, color`). |
-| `auto_outline_and_shade` | Deterministically generate 1px `outside`/`inside` outlines and directional shading. |
-| `lint_and_repair` | Run semantic review and safe/dry-run repairs with optional `protect_coords`. |
-| `checkpoint_workspace` | Save a named baseline snapshot of the current workspace for regression comparison. |
-| `regression_report` | Run pixel diffing and the QA test suite against a named checkpoint or reference PNG. |
-| `generate_color_ramp` | Generate hue-shifted pixel-art color ramps from shadow to highlight. |
-| `save_sprite` | Save the active sprite document to disk. |
+| Tool Name | Description | Read-Only? |
+| :--- | :--- | :---: |
+| `init_workspace` | Initialize a blank sprite workspace or load an existing PNG with optional QA constraints and `workspace_id`. | No |
+| `inspect_sprite` | Return structured semantic analysis (`SpriteAnalysis`), validation diagnostics, and the 2D ASCII grid. | Yes |
+| `apply_ascii_grid` | Paint or patch the sprite via a 2D ASCII grid and character-to-hex legend (`preserve_whitespace`, `strict`, `offset_x`, `offset_y`). | No |
+| `draw_shape` | Draw deterministic `line`, `rect`, `ellipse` (requires `x0, y0, x1, y1, color`), or `flood_fill` (`x0, y0, color`). | No |
+| `transform_sprite` | Perform deterministic transforms: `mirror`, `crop`, `resize_canvas`, `replace_color`, `paint_pixel`, or `shift_region` (bounded frame shifting). | No |
+| `auto_outline_and_shade` | Deterministically generate 1px `outside`/`inside` outlines and directional shading. | No |
+| `lint_and_repair` | Run semantic review and safe/dry-run repairs with optional `protect_coords`. | Optional |
+| `undo_redo` | Step backward (`undo`) or forward (`redo`) in the workspace command history stack. | No |
+| `checkpoint_workspace` | Save a named baseline snapshot of the current workspace for regression comparison. | No |
+| `regression_report` | Run pixel diffing and the QA test suite against a named checkpoint or reference PNG. | Yes |
+| `inspect_animation` | Slice the active sprite sheet into `(frame_width × frame_height)` frames and run animation QA checks (`anchor`, `centers_of_mass`, `frame_bounding_boxes`). | Yes |
+| `generate_color_ramp` | Generate hue-shifted pixel-art color ramps from shadow to highlight. | Yes |
+| `save_sprite` | Save the active sprite document to disk (preserving indexed `P` or `RGBA` mode). | No |
+
+### Exposed MCP Resources &amp; Prompts
+
+- **Resources (`resources/list`, `resources/read`):**
+  - `sprite://current/summary` — Active workspace `SpriteAnalysis`, constraints, and validation JSON
+  - `sprite://current/grid` — Lossless 2D ASCII character grid and color legend JSON
+  - `sprite://current/preview.png` — 8× nearest-neighbor upscaled PNG preview
+- **Prompts (`prompts/list`, `prompts/get`):**
+  - `construct-sprite` (`subject`, `size`)
+  - `edit-sprite-sheet` (`filepath`, `goal`)
+  - `audit-animation` (`filepath`, `frame_size`)
 
 > **Multimodal Preview Tip:** Passing `"include_preview_image": true` in any `tools/call` request returns an 8× nearest-neighbor upscaled PNG (`type: "image"`, `mimeType: "image/png"`) alongside the structured JSON text payload.
 
@@ -312,3 +346,9 @@ python3 -m unittest discover -s tests -v
   Indexed PNGs use a fixed color table. Either use colors already present in the sprite's palette (inspectable via `analyze` or `inspect_sprite`) or convert the image to `RGBA` before introducing new hex colors.
 - **ASCII grid alignment shifted on leading spaces:**
   Pass `preserve_whitespace=True` (enabled automatically for `List[str]` grids and grids containing spaces) or use `.` to represent transparent pixels explicitly.
+
+---
+
+## License
+
+Released under the [MIT License](LICENSE).

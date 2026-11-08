@@ -30,6 +30,7 @@ class SpriteWorkspace:
             "mirror": self.workbench.mirror,
             "crop": self.workbench.crop,
             "resize_canvas": self.workbench.resize_canvas,
+            "shift_region": self.workbench.shift_region,
             "draw_line": self.workbench.draw_line,
             "draw_rect": self.workbench.draw_rect,
             "draw_ellipse": self.workbench.draw_ellipse,
