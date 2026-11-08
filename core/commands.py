@@ -3,10 +3,33 @@ from PIL import Image
 from .palette import PaletteOperations
 
 
-def parse_color_value(color: Union[str, Tuple, List, int], mode: str = "RGBA"):
+def parse_color_value(color: Union[str, Tuple, List, int], mode: str = "RGBA", document=None):
     """Normalizes a hex string, RGB/RGBA tuple, or palette index into a Pillow pixel value."""
     if mode == "P":
-        return int(color)
+        if isinstance(color, int):
+            return color
+        if isinstance(color, str):
+            c = color.strip()
+            if c.isdigit() or (c.startswith("-") and c[1:].isdigit()):
+                return int(c)
+            if c.lower() in ("transparent", "none", "clear", "."):
+                return 0
+            if c.startswith("#") and document is not None and document.image:
+                palette = document.image.getpalette()
+                if palette:
+                    clean = c.lstrip("#")
+                    if len(clean) == 3:
+                        clean = "".join(ch * 2 for ch in clean)
+                    if len(clean) >= 6:
+                        target_rgb = tuple(int(clean[i:i+2], 16) for i in (0, 2, 4))
+                        for idx in range(len(palette) // 3):
+                            if (palette[idx*3], palette[idx*3+1], palette[idx*3+2]) == target_rgb:
+                                return idx
+                        raise ValueError(f"Color {color} not found in 'P' mode image palette.")
+        try:
+            return int(color)
+        except (ValueError, TypeError):
+            pass
     if isinstance(color, str):
         c = color.strip().lower()
         if c in ("transparent", "none", "clear", "."):
@@ -107,7 +130,7 @@ class DrawLine(Command):
         return points
 
     def execute(self, document):
-        val = parse_color_value(self.color, document.mode)
+        val = parse_color_value(self.color, document.mode, document=document)
         w, h = document.width, document.height
         pixels = document.image.load()
         for x, y in self.bresenham_points(self.x0, self.y0, self.x1, self.y1):
@@ -126,7 +149,7 @@ class DrawRect(Command):
         self.fill = bool(fill)
 
     def execute(self, document):
-        val = parse_color_value(self.color, document.mode)
+        val = parse_color_value(self.color, document.mode, document=document)
         w, h = document.width, document.height
         pixels = document.image.load()
         for y in range(self.y0, self.y1 + 1):
@@ -147,7 +170,7 @@ class DrawEllipse(Command):
         self.fill = bool(fill)
 
     def execute(self, document):
-        val = parse_color_value(self.color, document.mode)
+        val = parse_color_value(self.color, document.mode, document=document)
         w, h = document.width, document.height
         pixels = document.image.load()
         cx = (self.x0 + self.x1) / 2.0
@@ -183,7 +206,7 @@ class FloodFill(Command):
         w, h = document.width, document.height
         if not (0 <= self.x < w and 0 <= self.y < h):
             return
-        val = parse_color_value(self.color, document.mode)
+        val = parse_color_value(self.color, document.mode, document=document)
         pixels = document.image.load()
         target_val = pixels[self.x, self.y]
         if target_val == val:
@@ -216,7 +239,7 @@ class GenerateOutline(Command):
 
     def execute(self, document):
         w, h = document.width, document.height
-        val = parse_color_value(self.color, document.mode)
+        val = parse_color_value(self.color, document.mode, document=document)
         pixels = document.image.load()
         trans_idx = document.image.info.get("transparency") if document.mode == "P" else None
 
@@ -332,7 +355,7 @@ class ApplyAsciiGrid(Command):
             if col in ("transparent", "none", "clear", None):
                 parsed_legend[ch] = None
             else:
-                parsed_legend[ch] = parse_color_value(col, document.mode)
+                parsed_legend[ch] = parse_color_value(col, document.mode, document=document)
 
         clear_val = 0 if document.mode == "P" else ((0, 0, 0, 0) if document.mode == "RGBA" else (0, 0, 0))
 

@@ -104,13 +104,15 @@ def check_palette_regression(
 def check_outline_regression(
     before: Union[Document, Image.Image, str],
     after: Union[Document, Image.Image, str],
-    expected_outline_color: Optional[str] = None
+    expected_outline_color: Optional[str] = None,
+    disallow_new_jaggies: bool = False,
+    max_jaggies: Optional[int] = None
 ) -> Dict[str, Any]:
     """
     QA Test 3: Outline Regression
     Verifies that no broken or inconsistent outlines were introduced compared to baseline.
     Specifically checks if interior colors leaked onto the outer boundary where a closed
-    outline previously existed.
+    outline previously existed, and optionally enforces jaggies bounds.
     """
     before_doc = _to_document(before)
     after_doc = _to_document(after)
@@ -147,7 +149,17 @@ def check_outline_regression(
     before_jaggies = len(jaggies_rule._find_corner_doubles(before_doc, before_analysis))
     after_jaggies = len(jaggies_rule._find_corner_doubles(after_doc, after_analysis))
 
-    passed = (len(leaked_coords) == 0) and (len(after_analysis.outline) > 0 or len(before_analysis.outline) == 0)
+    jaggies_ok = True
+    if disallow_new_jaggies and after_jaggies > before_jaggies:
+        jaggies_ok = False
+    if max_jaggies is not None and after_jaggies > max_jaggies:
+        jaggies_ok = False
+
+    passed = (
+        (len(leaked_coords) == 0)
+        and (len(after_analysis.outline) > 0 or len(before_analysis.outline) == 0)
+        and jaggies_ok
+    )
     return {
         "test": "outline_regression",
         "passed": passed,
@@ -156,6 +168,7 @@ def check_outline_regression(
         "outline_leaks": leaked_coords,
         "jaggies_before": before_jaggies,
         "jaggies_after": after_jaggies,
+        "jaggies_check_passed": jaggies_ok,
     }
 
 
@@ -168,7 +181,7 @@ def check_symmetry_validation(
 ) -> Dict[str, Any]:
     """
     QA Test 4: Symmetry Validation
-    Verifies that intended horizontal/vertical symmetry is preserved.
+    Verifies that intended horizontal/vertical symmetry is preserved or meets explicit thresholds.
     """
     before_doc = _to_document(before)
     after_doc = _to_document(after)
@@ -197,6 +210,7 @@ def check_symmetry_validation(
         "after_symmetry": after_sym,
         "required_horizontal": target_h,
         "required_vertical": target_v,
+        "baseline_was_asymmetric": (before_sym["horizontal"] == 0.0 and before_sym["vertical"] == 0.0),
         "horizontal_asymmetric_pairs": asymmetric_pairs[:16],
     }
 
@@ -204,12 +218,15 @@ def check_symmetry_validation(
 def check_animation_regression(
     frames: List[Union[Document, Image.Image, str]],
     max_com_shift: float = 4.0,
-    max_volume_delta_ratio: float = 0.35
+    max_volume_delta_ratio: float = 0.35,
+    anchor: str = "bottom_center",
+    max_anchor_shift: Optional[float] = None
 ) -> Dict[str, Any]:
     """
     QA Test 5: Animation Regression
     Verifies consistency across animation frames: identical dimensions, consistent palette,
-    bounded center-of-mass shift, and consistent opaque pixel volume.
+    bounded center-of-mass shift, consistent opaque pixel volume, and optional bounding-box
+    anchor stability (e.g. 'bottom_center', 'top_center', 'center', 'bottom_left', 'bottom_right').
     """
     if not frames:
         return {"test": "animation_regression", "passed": False, "error": "No frames provided."}
@@ -221,6 +238,8 @@ def check_animation_regression(
     palettes = []
     volumes = []
     centers = []
+    bboxes = []
+    anchors = []
 
     for d in docs:
         rgba = d.image.convert("RGBA")
@@ -235,8 +254,25 @@ def check_animation_regression(
             cx = sum(p[0] for p in opaque_pts) / len(opaque_pts)
             cy = sum(p[1] for p in opaque_pts) / len(opaque_pts)
             centers.append((round(cx, 2), round(cy, 2)))
+            min_x = min(p[0] for p in opaque_pts)
+            max_x = max(p[0] for p in opaque_pts)
+            min_y = min(p[1] for p in opaque_pts)
+            max_y = max(p[1] for p in opaque_pts)
+            bboxes.append([min_x, min_y, max_x, max_y])
+            if anchor == "top_center":
+                anchors.append((round((min_x + max_x) / 2.0, 2), float(min_y)))
+            elif anchor == "center":
+                anchors.append((round((min_x + max_x) / 2.0, 2), round((min_y + max_y) / 2.0, 2)))
+            elif anchor == "bottom_left":
+                anchors.append((float(min_x), float(max_y)))
+            elif anchor == "bottom_right":
+                anchors.append((float(max_x), float(max_y)))
+            else:  # default "bottom_center"
+                anchors.append((round((min_x + max_x) / 2.0, 2), float(max_y)))
         else:
             centers.append((w / 2.0, h / 2.0))
+            bboxes.append([0, 0, 0, 0])
+            anchors.append((w / 2.0, h / 2.0))
 
     base_palette = palettes[0]
     palette_drifts = [sorted(pal - base_palette) for pal in palettes[1:] if (pal - base_palette)]
@@ -248,14 +284,26 @@ def check_animation_regression(
         if dist > max_observed_shift:
             max_observed_shift = round(dist, 2)
 
+    max_observed_anchor_shift = 0.0
+    for i in range(len(anchors) - 1):
+        a1, a2 = anchors[i], anchors[i + 1]
+        dist = ((a1[0] - a2[0]) ** 2 + (a1[1] - a2[1]) ** 2) ** 0.5
+        if dist > max_observed_anchor_shift:
+            max_observed_anchor_shift = round(dist, 2)
+
     base_vol = max(1, volumes[0])
     max_vol_delta = max((abs(v - volumes[0]) / base_vol for v in volumes), default=0.0)
+
+    anchor_ok = True
+    if max_anchor_shift is not None and max_observed_anchor_shift > max_anchor_shift:
+        anchor_ok = False
 
     passed = (
         consistent_dimensions
         and len(palette_drifts) == 0
         and max_observed_shift <= max_com_shift
         and max_vol_delta <= max_volume_delta_ratio
+        and anchor_ok
     )
     return {
         "test": "animation_regression",
@@ -264,8 +312,12 @@ def check_animation_regression(
         "consistent_dimensions": consistent_dimensions,
         "palette_drifts": palette_drifts,
         "frame_volumes": volumes,
+        "frame_bounding_boxes": bboxes,
         "centers_of_mass": [list(c) for c in centers],
         "max_center_of_mass_shift": max_observed_shift,
+        "anchor_mode": anchor,
+        "anchor_points": [list(a) for a in anchors],
+        "max_anchor_shift": max_observed_anchor_shift,
         "max_volume_delta_ratio": round(max_vol_delta, 3),
     }
 
@@ -378,6 +430,8 @@ def generate_regression_report(
         before_doc,
         after_doc,
         expected_outline_color=constraints.get("expected_outline_color"),
+        disallow_new_jaggies=constraints.get("disallow_new_jaggies", False),
+        max_jaggies=constraints.get("max_jaggies"),
     )
     sym_reg = check_symmetry_validation(
         before_doc,

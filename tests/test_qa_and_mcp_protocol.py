@@ -227,6 +227,14 @@ class TestPriority3MCPProtocolIntegration(unittest.TestCase):
                 r_bad_args = client.call_tool("init_workspace", {"width": -5, "height": 8})
                 self.assertTrue(r_bad_args["isError"])
                 self.assertEqual(r_bad_args["data"]["error_type"], "ValueError")
+
+                r_missing_xy1 = client.call_tool(
+                    "draw_shape",
+                    {"shape": "rect", "x0": 0, "y0": 0, "color": "#ff0000"},
+                )
+                self.assertTrue(r_missing_xy1["isError"])
+                self.assertEqual(r_missing_xy1["data"]["error_type"], "ValueError")
+                self.assertIn("x1", r_missing_xy1["data"]["error"])
         finally:
             if os.path.exists(out_path):
                 os.remove(out_path)
@@ -313,6 +321,15 @@ class TestPriority4PixelArtQARegressionSuite(unittest.TestCase):
         bad_anim = check_animation_regression([f1, f2_bad])
         self.assertFalse(bad_anim["passed"])
         self.assertEqual(len(bad_anim["palette_drifts"]), 1)
+
+        # Verify configurable anchor-point validation detects excessive ground-anchor drift
+        f2_shifted = Image.new("RGBA", (8, 8), (0, 0, 0, 0))
+        for y in range(2, 6):
+            for x in range(4, 8):  # shifted 2px right
+                f2_shifted.putpixel((x, y), (255, 0, 0, 255))
+        strict_anchor = check_animation_regression([f1, f2_shifted], anchor="bottom_center", max_anchor_shift=1.0)
+        self.assertFalse(strict_anchor["passed"])
+        self.assertEqual(strict_anchor["max_anchor_shift"], 2.0)
 
 
 if __name__ == "__main__":

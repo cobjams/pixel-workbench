@@ -39,7 +39,14 @@ class AgentToolServer:
                         "height": {"type": "integer", "default": 16},
                         "filepath": {"type": "string", "description": "Optional path to existing PNG"},
                         "prompt": {"type": "string", "default": ""},
-                        "constraints": {"type": "object", "description": "Optional QA constraints (e.g. max_colors, preserve_symmetry)"},
+                        "constraints": {
+                            "type": "object",
+                            "description": (
+                                "Optional QA constraints (e.g. allowed_palette, max_colors, "
+                                "expected_outline_color, preserve_symmetry, min_horizontal_symmetry, "
+                                "min_vertical_symmetry, disallow_new_jaggies)"
+                            ),
+                        },
                     },
                 },
             },
@@ -85,12 +92,22 @@ class AgentToolServer:
                         "shape": {"type": "string", "enum": ["line", "rect", "ellipse", "flood_fill"]},
                         "x0": {"type": "integer"},
                         "y0": {"type": "integer"},
-                        "x1": {"type": "integer"},
-                        "y1": {"type": "integer"},
+                        "x1": {"type": "integer", "description": "End X coordinate (required for line, rect, ellipse)"},
+                        "y1": {"type": "integer", "description": "End Y coordinate (required for line, rect, ellipse)"},
                         "color": {"type": "string", "description": "Hex color e.g. '#3366cc'"},
                         "fill": {"type": "boolean", "default": True},
                     },
                     "required": ["shape", "x0", "y0", "color"],
+                    "allOf": [
+                        {
+                            "if": {
+                                "properties": {"shape": {"enum": ["line", "rect", "ellipse"]}}
+                            },
+                            "then": {
+                                "required": ["x1", "y1"]
+                            },
+                        }
+                    ],
                 },
             },
             {
@@ -233,9 +250,17 @@ class AgentToolServer:
 
         elif name == "draw_shape":
             for req in ("shape", "x0", "y0", "color"):
-                if req not in arguments:
+                if req not in arguments or arguments[req] is None:
                     raise ValueError(f"Missing required argument for draw_shape: '{req}'")
             shape = arguments["shape"]
+            if shape not in ("flood_fill", "line", "rect", "ellipse"):
+                raise ValueError(f"Unsupported shape: {shape}")
+            if shape in ("line", "rect", "ellipse"):
+                for req in ("x1", "y1"):
+                    if req not in arguments or arguments[req] is None:
+                        raise ValueError(
+                            f"Missing required argument for draw_shape (shape='{shape}'): '{req}'"
+                        )
             x0 = int(arguments["x0"])
             y0 = int(arguments["y0"])
             color = arguments["color"]
@@ -248,8 +273,6 @@ class AgentToolServer:
                 wb.draw_rect(x0, y0, int(arguments["x1"]), int(arguments["y1"]), color, fill=fill)
             elif shape == "ellipse":
                 wb.draw_ellipse(x0, y0, int(arguments["x1"]), int(arguments["y1"]), color, fill=fill)
-            else:
-                raise ValueError(f"Unsupported shape: {shape}")
             self.workspace.refresh()
             return self.workspace.summary(include_grid=True)
 
